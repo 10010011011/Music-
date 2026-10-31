@@ -112,7 +112,7 @@ export default function App() {
         const pendingQueue = pendingQueueIds
           .map((id) => indexById.get(id))
           .filter((index): index is number => index !== undefined);
-        const queueOrder = [...restoredQueue, ...pendingQueue];
+        const queueOrder = [...new Set([...restoredQueue, ...pendingQueue])];
         const used = new Set(queueOrder);
         const queue = [...queueOrder, ...mergedTracks.map((_, index) => index).filter((index) => !used.has(index))];
         const pendingCurrentId = player.get().trackId ||
