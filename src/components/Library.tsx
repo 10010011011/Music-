@@ -148,8 +148,8 @@ export default function Library({
         {list.length === 0 ? (
           <div className="workspace-empty">
             {filter === "liked"
-              ? "No liked songs yet. Tap the heart icon on any track to save it here."
-              : "No matching tracks found. Open a music folder, add audio files, or load the synthesized demo songs."}
+              ? "No liked songs yet."
+              : "No songs yet. Add music to your library."}
           </div>
         ) : (
           <div style={{ height: list.length * ROW }} className="relative">
