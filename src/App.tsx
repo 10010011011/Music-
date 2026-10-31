@@ -4,7 +4,7 @@ import { useStore, settings, player, library, toast } from "./lib/store";
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
 import { ingest, openFolderHandle } from "./lib/library";
-import { ensureStarterDemo } from "./lib/demo";
+import { restoreNativeTracks } from "./lib/nativeLibrary";
 import { PlayerBar } from "./components/Player";
 import { RightLyricsPanel } from "./components/SharedAudioViews";
 import { Icon } from "./components/ui";
@@ -53,7 +53,15 @@ export default function App() {
   const folderRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    ensureStarterDemo();
+    const restore = async () => {
+      const saved = await restoreNativeTracks();
+      if (saved.length) {
+        const queue = saved.map((_, i) => i);
+        library.set({ tracks: saved, queue, qpos: 0, folderName: "On this device" });
+        if (!engine.el.src) engine.primeAt(0);
+      }
+    };
+    void restore();
     initDevices();
 
     const onKey = (e: KeyboardEvent) => {
