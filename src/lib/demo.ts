@@ -36,32 +36,6 @@ function makeSvgCover(bg1: string, bg2: string, accent: string, code: string, la
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-const AFTERGLOW_SPEC: DemoSpec = {
-  title: "Afterglow",
-  artist: "Sonora Sessions",
-  album: "Sonora Sessions",
-  subtitleTag: "Ambient electronic · Demo track",
-  cover: "./afterglow-cover.webp",
-  hidden: "SONORA",
-  root: 58,
-  bpm: 96,
-  prog: [
-    [0, 4, 7, 11],
-    [5, 9, 12, 16],
-    [9, 12, 16, 19],
-    [7, 11, 14, 17],
-  ],
-  ambient: true,
-  lyrics: [
-    { t: 0, text: "The light settles in" },
-    { t: 3.2, text: "Somewhere beyond the blue" },
-    { t: 6.8, text: "A quiet place to begin again" },
-    { t: 10.5, text: "We let the hours drift away" },
-    { t: 14.3, text: "And follow the afterglow" },
-    { t: 17.6, text: "Until the stars come through" },
-  ],
-};
-
 const EXTRA_SPECS: DemoSpec[] = [
   {
     title: "Teal Signal",
@@ -277,39 +251,10 @@ function formatLrcLines(lines: { t: number; text: string }[]) {
 
 let bootLoaded = false;
 
-export async function ensureStarterDemo() {
-  if (bootLoaded || library.get().tracks.length > 0) return;
-  bootLoaded = true;
-  const { L, R, sr, dur } = synth(AFTERGLOW_SPEC, 22050);
-  const name = `${AFTERGLOW_SPEC.artist} - ${AFTERGLOW_SPEC.title}.wav`;
-  const file = new File([wav(L, R, sr)], name, { type: "audio/wav", lastModified: 1700000000000 });
-  const lrc = formatLrcLines(AFTERGLOW_SPEC.lyrics);
-  await ingest(
-    [
-      {
-        file,
-        path: `${AFTERGLOW_SPEC.album}/${name}`,
-        cover: AFTERGLOW_SPEC.cover,
-        demo: true,
-        subtitleTag: AFTERGLOW_SPEC.subtitleTag,
-        duration: dur,
-      },
-    ],
-    "Sonora Sessions",
-    false,
-    true
-  );
-  const tr = library.get().tracks[0];
-  if (tr) {
-    (tr as any).demoLyrics = lrc;
-    await loadLyricsFor(tr);
-  }
-}
-
 export async function loadDemo() {
   library.set({ loading: true });
   await new Promise((r) => setTimeout(r, 20));
-  const allSpecs = [AFTERGLOW_SPEC, ...EXTRA_SPECS];
+  const allSpecs = EXTRA_SPECS;
   const files: {
     file: File;
     path: string;
