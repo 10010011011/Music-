@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
 import { Capacitor } from "@capacitor/core";
-import { useStore, settings, player, library, toast } from "./lib/store";
+import { useStore, settings, player, library } from "./lib/store";
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
 import { ingest, openFolderHandle } from "./lib/library";
@@ -155,7 +155,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
-            <Icon n="audio-lines" s={23} strokeWidth={2.7} />
+            <img src="./favicon.svg" alt="" className="brand-logo" />
           </div>
           <span>
             sonora<span className="brand-dot">.</span>
@@ -170,28 +170,28 @@ export default function App() {
               className={view === "room" ? "active" : ""}
               onClick={() => navigate("room")}
             >
-              <Icon n="music" s={19} /> Listening room
+              <Icon n="home" s={19} /> Home
             </button>
             <button
               type="button"
               className={view === "library" ? "active" : ""}
               onClick={() => navigate("library")}
             >
-              <Icon n="list-music" s={19} /> Your library
+              <Icon n="list-music" s={19} /> Library
             </button>
             <button
               type="button"
               className={view === "lyrics" ? "active" : ""}
               onClick={() => navigate("lyrics")}
             >
-              <Icon n="mic" s={19} /> Lyrics studio
+              <Icon n="lyrics" s={19} /> Lyrics
             </button>
             <button
               type="button"
               className={view === "sound" || view === "visual" ? "active" : ""}
               onClick={() => navigate("sound")}
             >
-              <Icon n="sliders" s={19} /> Sound lab
+              <Icon n="sliders" s={19} /> Sound
             </button>
           </nav>
 
@@ -254,14 +254,6 @@ export default function App() {
           <button type="button" className="quick-link" onClick={() => filesRef.current?.click()}>
             <Icon n="upload" s={17} /> Add audio files
           </button>
-          <a
-            href="./sonora-github-flat.zip"
-            download="sonora-github-flat.zip"
-            className="quick-link"
-            onClick={() => toast("Downloading flat GitHub zip for mobile…")}
-          >
-            <Icon n="package" s={17} /> Flat GitHub zip
-          </a>
         </div>
 
         <div className="sidebar-bottom">
@@ -282,8 +274,14 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumb">
-            YOUR SPACE <Icon n="right" s={13} /> <strong>{viewTitle}</strong>
-            {loading && <span className="ml-2 text-accent">· Scanning…</span>}
+            <span className="mobile-brand">
+              <img src="./favicon.svg" alt="" />
+              <b>Sonora</b>
+            </span>
+            <span className="desktop-breadcrumb">
+              YOUR SPACE <Icon n="right" s={13} /> <strong>{viewTitle}</strong>
+              {loading && <span className="ml-2 text-accent">· Scanning…</span>}
+            </span>
           </div>
 
           <div className="top-actions">
