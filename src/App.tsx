@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
 import { Capacitor } from "@capacitor/core";
-import { useStore, settings, player, library } from "./lib/store";
+import { useStore, settings, player, library, lyricsStore } from "./lib/store";
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
-import { ingest, openFolderHandle } from "./lib/library";
-import { restoreNativeTracks } from "./lib/nativeLibrary";
+import { ingest, openFolderHandle, loadTagsInBackground } from "./lib/library";
+import { restoreNativeTracks, restoreNativeAppState, persistNativeAppState } from "./lib/nativeLibrary";
 import { PlayerBar } from "./components/Player";
 import { RightLyricsPanel } from "./components/SharedAudioViews";
 import { Icon } from "./components/ui";
@@ -54,15 +54,41 @@ export default function App() {
   const folderRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const restore = async () => {
-      const saved = await restoreNativeTracks();
-      if (saved.length) {
-        const queue = saved.map((_, i) => i);
-        library.set({ tracks: saved, queue, qpos: 0, folderName: "On this device" });
-        if (!engine.el.src) engine.primeAt(0);
-      }
+    let cancelled = false;
+    let saveTimer: number | undefined;
+    let unsubscribeSettings: (() => void) | undefined;
+    let unsubscribeLyrics: (() => void) | undefined;
+
+    const schedulePersistentState = () => {
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => {
+        void persistNativeAppState(settings.get(), lyricsStore.get().map);
+      }, 450);
     };
-    void restore();
+
+    const restore = async () => {
+      const [savedTracks, savedState] = await Promise.all([
+        restoreNativeTracks(),
+        restoreNativeAppState(),
+      ]);
+      if (cancelled) return;
+
+      if (savedState?.settings) settings.set(savedState.settings);
+      if (savedState?.lyrics) lyricsStore.set({ map: savedState.lyrics });
+
+      if (savedTracks.length) {
+        const queue = savedTracks.map((_, i) => i);
+        library.set({ tracks: savedTracks, queue, qpos: 0, folderName: "Sonora Library" });
+        if (!engine.el.src) engine.primeAt(0);
+        if (savedTracks.some((track) => !track.tagsDone)) void loadTagsInBackground();
+      }
+
+      // Subscribe after restoring so the restored snapshot is not overwritten by defaults.
+      unsubscribeSettings = settings.sub(schedulePersistentState);
+      unsubscribeLyrics = lyricsStore.sub(schedulePersistentState);
+    };
+
+    void restore().catch((error) => console.error("Sonora restore failed", error));
     initDevices();
 
     const onKey = (e: KeyboardEvent) => {
@@ -78,7 +104,13 @@ export default function App() {
       else if (e.code === "ArrowLeft") engine.seek(engine.time - 5);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("keydown", onKey);
+      window.clearTimeout(saveTimer);
+      unsubscribeSettings?.();
+      unsubscribeLyrics?.();
+    };
   }, []);
 
   // Track whether lyrics UI is visible so engine can throttle seekbar/lyrics clock to 10Hz when hidden
