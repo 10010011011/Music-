@@ -39,6 +39,8 @@ jobs:
           cat $M
       - name: Sync web assets
         run: npx cap sync android
+      - name: Install Sonora launcher icon
+        run: bash scripts/set-android-icon.sh
       - name: Gradle build (debug APK)
         working-directory: android
         run: |
