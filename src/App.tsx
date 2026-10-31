@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
 import { Capacitor } from "@capacitor/core";
-import { useStore, settings, player, library, lyricsStore } from "./lib/store";
+import { useStore, settings, player, library, lyricsStore, type Settings } from "./lib/store";
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
 import { ingest, openFolderHandle, loadTagsInBackground } from "./lib/library";
@@ -59,6 +59,8 @@ export default function App() {
     let unsubscribeSettings: (() => void) | undefined;
     let unsubscribeLyrics: (() => void) | undefined;
     let unsubscribeLibrary: (() => void) | undefined;
+    const initialSettings = settings.get();
+    const initialLyricsMap = lyricsStore.get().map;
 
     const persistStateNow = () => {
       window.clearTimeout(saveTimer);
@@ -84,8 +86,24 @@ export default function App() {
       ]);
       if (cancelled) return;
 
-      if (savedState?.settings) settings.set(savedState.settings);
-      if (savedState?.lyrics) lyricsStore.set({ map: savedState.lyrics });
+      if (savedState?.settings) {
+        const currentSettings = settings.get();
+        const userChanges: Partial<Settings> = {};
+        for (const key of Object.keys(currentSettings) as (keyof Settings)[]) {
+          if (currentSettings[key] !== initialSettings[key]) {
+            Object.assign(userChanges, { [key]: currentSettings[key] });
+          }
+        }
+        settings.set({ ...savedState.settings, ...userChanges });
+      }
+      if (savedState?.lyrics) {
+        const currentLyrics = lyricsStore.get().map;
+        lyricsStore.set({
+          map: currentLyrics === initialLyricsMap
+            ? savedState.lyrics
+            : { ...savedState.lyrics, ...currentLyrics },
+        });
+      }
 
       const pendingState = library.get();
       const pendingTracks = pendingState.tracks;
