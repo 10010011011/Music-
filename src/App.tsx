@@ -87,18 +87,42 @@ export default function App() {
       if (savedState?.settings) settings.set(savedState.settings);
       if (savedState?.lyrics) lyricsStore.set({ map: savedState.lyrics });
 
-      if (savedTracks.length) {
-        const indexById = new Map(savedTracks.map((track, index) => [track.id, index]));
+      const pendingState = library.get();
+      const pendingTracks = pendingState.tracks;
+      const mergedTracks = [...savedTracks];
+      const indexById = new Map(mergedTracks.map((track, index) => [track.id, index]));
+      for (const track of pendingTracks) {
+        const existingIndex = indexById.get(track.id);
+        if (existingIndex === undefined) {
+          indexById.set(track.id, mergedTracks.length);
+          mergedTracks.push(track);
+        } else {
+          // An import performed while the restore was running is the newest in-memory copy.
+          mergedTracks[existingIndex] = track;
+        }
+      }
+
+      if (mergedTracks.length) {
         const restoredQueue = (savedState?.queueIds || [])
           .map((id) => indexById.get(id))
           .filter((index): index is number => index !== undefined);
-        const used = new Set(restoredQueue);
-        const queue = [...restoredQueue, ...savedTracks.map((_, index) => index).filter((index) => !used.has(index))];
-        const currentIndex = savedState?.currentTrackId ? indexById.get(savedState.currentTrackId) : undefined;
+        const pendingQueueIds = pendingState.queue
+          .map((index) => pendingTracks[index]?.id)
+          .filter((id): id is string => Boolean(id));
+        const pendingQueue = pendingQueueIds
+          .map((id) => indexById.get(id))
+          .filter((index): index is number => index !== undefined);
+        const queueOrder = [...restoredQueue, ...pendingQueue];
+        const used = new Set(queueOrder);
+        const queue = [...queueOrder, ...mergedTracks.map((_, index) => index).filter((index) => !used.has(index))];
+        const pendingCurrentId = player.get().trackId ||
+          pendingTracks[pendingState.queue[pendingState.qpos]]?.id;
+        const currentId = pendingCurrentId || savedState?.currentTrackId || null;
+        const currentIndex = currentId ? indexById.get(currentId) : undefined;
         const qpos = currentIndex === undefined ? 0 : Math.max(0, queue.indexOf(currentIndex));
-        library.set({ tracks: savedTracks, queue, qpos, folderName: "Sonora Library" });
+        library.set({ tracks: mergedTracks, queue, qpos, folderName: "Sonora Library" });
         if (!engine.el.src) engine.primeAt(qpos);
-        if (savedTracks.some((track) => !track.tagsDone)) void loadTagsInBackground();
+        if (mergedTracks.some((track) => !track.tagsDone)) void loadTagsInBackground();
       }
 
       // Subscribe after restoring so the restored snapshot is not overwritten by defaults.
