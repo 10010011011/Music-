@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useStore, settings, player, library, toast } from "./lib/store";
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
@@ -97,6 +98,13 @@ export default function App() {
   };
 
   const triggerOpenFolder = () => {
+    // Android WebView does not implement the browser directory picker and its
+    // webkitdirectory fallback is not supported by Android document providers.
+    // Use the native file chooser instead; users can multi-select audio files.
+    if (Capacitor.isNativePlatform()) {
+      filesRef.current?.click();
+      return;
+    }
     if (window.showDirectoryPicker) openFolderHandle();
     else folderRef.current?.click();
   };

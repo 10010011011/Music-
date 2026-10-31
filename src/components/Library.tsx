@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useStore, library, player, settings, fmt, toggleLikeTrack } from "../lib/store";
 import { ingest, openFolderHandle, savedFolder, playTrackIndex } from "../lib/library";
 import { loadDemo } from "../lib/demo";
@@ -18,7 +19,12 @@ export function Pickers({
     savedFolder().then(setSaved);
   }, []);
 
-  const openFolder = () => (window.showDirectoryPicker ? openFolderHandle() : dirRef.current?.click());
+  const native = Capacitor.isNativePlatform();
+  const openFolder = () => {
+    // Folder selection via webkitdirectory is not implemented by Android WebView.
+    if (native) return fileRef.current?.click();
+    return window.showDirectoryPicker ? openFolderHandle() : dirRef.current?.click();
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -26,7 +32,7 @@ export function Pickers({
         <Icon n="plus" s={17} /> Add files
       </button>
       <button type="button" className="outline-button" onClick={openFolder}>
-        <Icon n="folder-open" s={17} /> Open folder
+        <Icon n="folder-open" s={17} /> {native ? "Select music" : "Open folder"}
       </button>
       {saved && (
         <button
