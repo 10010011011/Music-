@@ -41,10 +41,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     setChoosingStorage(true);
     try {
       const status = await choosePersistentLibraryFolder();
-      await persistNativeTracks(library.get().tracks);
-      await persistNativeAppState(settings.get(), lyricsStore.get().map);
       setStorageStatus(status);
-      toast("Sonora Library folder is ready");
+      try {
+        await persistNativeTracks(library.get().tracks);
+        await persistNativeAppState(settings.get(), lyricsStore.get().map);
+        toast("Sonora Library folder is ready");
+      } catch (error) {
+        console.error("Sonora folder connected but current library migration failed", error);
+        toast("Folder connected, but some music could not be copied. Check free space.");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.toLowerCase().includes("cancel")) {
