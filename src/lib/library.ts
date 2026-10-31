@@ -237,11 +237,13 @@ export async function loadLyricsFor(t: Track) {
   }
 }
 
-let saveT: number | undefined;
+const saveTimers = new Map<string, number>();
 export function saveLyrics(id: string, l: Lyrics) {
   lyricsStore.set((s) => ({ map: { ...s.map, [id]: l } }));
-  clearTimeout(saveT);
-  saveT = window.setTimeout(() => {
+  const previousTimer = saveTimers.get(id);
+  if (previousTimer !== undefined) clearTimeout(previousTimer);
+  const timer = window.setTimeout(() => {
+    saveTimers.delete(id);
     void kvSet("lyr:" + id, l);
     // Keep a text source in step with edits so an old word-timing source
     // cannot later overwrite a user's intentional line or timestamp changes.
@@ -250,4 +252,5 @@ export function saveLyrics(id: string, l: Lyrics) {
       name: l.source || "saved lyrics",
     });
   }, 300);
+  saveTimers.set(id, timer);
 }
