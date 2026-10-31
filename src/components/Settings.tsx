@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { useStore, settings, player, toast, type ThemeName } from "../lib/store";
+import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { useStore, settings, player, toast, library, lyricsStore, type ThemeName } from "../lib/store";
 import { devices, requestDeviceNames } from "../lib/devices";
 import { Icon } from "./ui";
 import { Calibrate } from "./SharedAudioViews";
+import { choosePersistentLibraryFolder, getPersistentStorageStatus, persistNativeAppState, persistNativeTracks, type StorageStatus } from "../lib/nativeLibrary";
 
 export const THEMES: {
   id: ThemeName;
@@ -25,7 +27,34 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const named = useStore(devices, (d) => d.named);
 
   const [calib, setCalib] = useState(false);
+  const [storageStatus, setStorageStatus] = useState<StorageStatus>({ configured: false, folderName: "" });
+  const [choosingStorage, setChoosingStorage] = useState(false);
   const set = settings.set;
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      getPersistentStorageStatus().then(setStorageStatus);
+    }
+  }, []);
+
+  const chooseStorage = async () => {
+    setChoosingStorage(true);
+    try {
+      const status = await choosePersistentLibraryFolder();
+      await persistNativeTracks(library.get().tracks);
+      await persistNativeAppState(settings.get(), lyricsStore.get().map);
+      setStorageStatus(status);
+      toast("Sonora Library folder is ready");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes("cancel")) {
+        toast("Could not grant folder access");
+        console.error("Sonora folder selection failed", error);
+      }
+    } finally {
+      setChoosingStorage(false);
+    }
+  };
 
   const sleepMinutes = sleepEot
     ? -1
@@ -52,6 +81,32 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="modal-scroll">
+          {Capacitor.isNativePlatform() && (
+            <div className="settings-group">
+              <h3>Music storage</h3>
+              <div className="setting-line">
+                <div>
+                  <b>{storageStatus.configured ? "Folder connected" : "Choose a library folder"}</b>
+                  <span>
+                    {storageStatus.configured
+                      ? "Music, artwork, lyrics and settings are saved in " + storageStatus.folderName + "."
+                      : "Grant Sonora access once so your music and library data remain available after closing the app."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="outline-button h-8 px-3 text-xs"
+                  onClick={chooseStorage}
+                  disabled={choosingStorage}
+                >
+                  {choosingStorage ? "Opening…" : storageStatus.configured ? "Change folder" : "Grant access"}
+                </button>
+              </div>
+              <p className="modal-note">
+                Select a parent folder such as Music. Sonora creates its own “Sonora Library” folder inside it.
+              </p>
+            </div>
+          )}
           {/* Appearance & Special Vocaloid Themes */}
           <div className="settings-group">
             <h3>Appearance</h3>
