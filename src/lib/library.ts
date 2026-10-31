@@ -41,8 +41,17 @@ export async function ingest(
   });
 
   const prev = replace ? [] : library.get().tracks;
-  const seen = new Set(prev.map((t) => t.id));
-  const tracks = [...prev, ...fresh.filter((t) => !seen.has(t.id))];
+  let attachedLyrics = 0;
+  const updatedPrev = prev.map((track) => {
+    const sidecar = side.get(keyOf(track.path)) || side.get(keyOf(track.file.name));
+    if (!sidecar || (track.sidecar?.size === sidecar.size && track.sidecar?.lastModified === sidecar.lastModified)) {
+      return track;
+    }
+    attachedLyrics++;
+    return { ...track, sidecar };
+  });
+  const seen = new Set(updatedPrev.map((t) => t.id));
+  const tracks = [...updatedPrev, ...fresh.filter((t) => !seen.has(t.id))];
   const queue = tracks.map((_, i) => i);
   const nextQpos = library.get().qpos >= 0 && !replace ? library.get().qpos : tracks.length ? 0 : -1;
 
@@ -66,10 +75,14 @@ export async function ingest(
     engine.primeAt(nextQpos);
   }
 
-  if (!silent && fresh.length > 0) {
+  if (!silent && (fresh.length > 0 || attachedLyrics > 0)) {
     toast(persistError
-      ? "Music added, but saving failed. Check Settings → Music storage."
-      : `${fresh.length} track${fresh.length === 1 ? "" : "s"} added${side.size ? ` · ${side.size} LRC matched` : ""}`);
+      ? "Music or lyrics added, but saving failed. Check Settings → Music storage."
+      : [
+          fresh.length ? `${fresh.length} track${fresh.length === 1 ? "" : "s"} added` : "",
+          attachedLyrics ? `${attachedLyrics} lyric file${attachedLyrics === 1 ? "" : "s"} attached` : "",
+          fresh.length && side.size ? `${side.size} LRC matched` : "",
+        ].filter(Boolean).join(" · "));
   }
   void loadTagsInBackground();
 }
