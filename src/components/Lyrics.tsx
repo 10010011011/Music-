@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useStore, clock, settings, toast, fmt, type Lyrics } from "../lib/store";
-import { kvSet } from "../lib/db";
 import { saveLyrics } from "../lib/library";
 import { parseLyrics, toLRC, activeIndex, bakeOffset, shiftFrom, stamp, parseCueTime } from "../lib/lyrics";
 import { engine } from "../lib/engine";
@@ -72,10 +71,6 @@ export default function LyricsPage() {
       setDraft(text);
       const parsed = parseLyrics(text, file.name);
       saveLyrics(track.id, parsed);
-
-      // Retain the original source text as well as the parsed representation.
-      // Future parser upgrades can then recover word-level timing information.
-      void kvSet("lyr:source:" + track.id, { text, name: file.name });
 
       setTapNext(0);
       setMode(parsed.lines.some((l) => l.t === null) ? "tap" : "preview");
