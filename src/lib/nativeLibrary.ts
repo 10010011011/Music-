@@ -326,8 +326,9 @@ async function persistSafTracks(tracks: Track[], status: StorageStatus) {
   cachedIndex = next;
 }
 
-export async function persistNativeTracks(tracks: Track[]) {
-  if (!Capacitor.isNativePlatform()) return;
+let trackPersistenceQueue: Promise<void> = Promise.resolve();
+
+async function persistNativeTracksNow(tracks: Track[]) {
   const status = await getPersistentStorageStatus();
   if (!status.configured) {
     await persistPrivateTracks(tracks);
@@ -345,6 +346,14 @@ export async function persistNativeTracks(tracks: Track[]) {
     }
     throw error;
   }
+}
+
+export async function persistNativeTracks(tracks: Track[]) {
+  if (!Capacitor.isNativePlatform()) return;
+  const snapshot = [...tracks];
+  const job = trackPersistenceQueue.then(() => persistNativeTracksNow(snapshot));
+  trackPersistenceQueue = job.catch(() => {});
+  await job;
 }
 
 async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
@@ -468,6 +477,8 @@ export async function restoreNativeTracks(): Promise<Track[]> {
   return restorePrivateTracks();
 }
 
+let appStatePersistenceQueue: Promise<void> = Promise.resolve();
+
 export async function persistNativeAppState(
   settings: Partial<Settings>,
   lyrics: Record<string, Lyrics>,
@@ -475,26 +486,30 @@ export async function persistNativeAppState(
 ) {
   if (!Capacitor.isNativePlatform()) return;
   const data = JSON.stringify({ version: 1, settings, lyrics, ...playback });
-  const status = await getPersistentStorageStatus();
-  try {
-    if (status.configured) {
-      await NativeStorage.writeFile({
-        path: "data/state.json", data: textToBase64(data), mimeType: "application/json",
-      });
-      await Filesystem.deleteFile({ path: PRIVATE_STATE, directory: Directory.Data }).catch(() => {});
-    } else {
+  const job = appStatePersistenceQueue.then(async () => {
+    const status = await getPersistentStorageStatus();
+    try {
+      if (status.configured) {
+        await NativeStorage.writeFile({
+          path: "data/state.json", data: textToBase64(data), mimeType: "application/json",
+        });
+        await Filesystem.deleteFile({ path: PRIVATE_STATE, directory: Directory.Data }).catch(() => {});
+      } else {
+        await Filesystem.mkdir({ path: "sonora-library", directory: Directory.Data, recursive: true }).catch(() => {});
+        await Filesystem.writeFile({
+          path: PRIVATE_STATE, data, directory: Directory.Data, recursive: true,
+        });
+      }
+    } catch (error) {
+      console.warn("Sonora could not persist settings and lyric edits to the selected folder", error);
       await Filesystem.mkdir({ path: "sonora-library", directory: Directory.Data, recursive: true }).catch(() => {});
       await Filesystem.writeFile({
         path: PRIVATE_STATE, data, directory: Directory.Data, recursive: true,
-      });
+      }).catch((fallbackError) => console.warn("Sonora private state backup failed", fallbackError));
     }
-  } catch (error) {
-    console.warn("Sonora could not persist settings and lyric edits to the selected folder", error);
-    await Filesystem.mkdir({ path: "sonora-library", directory: Directory.Data, recursive: true }).catch(() => {});
-    await Filesystem.writeFile({
-      path: PRIVATE_STATE, data, directory: Directory.Data, recursive: true,
-    }).catch((fallbackError) => console.warn("Sonora private state backup failed", fallbackError));
-  }
+  });
+  appStatePersistenceQueue = job.catch(() => {});
+  await job;
 }
 
 export async function restoreNativeAppState(): Promise<PersistedAppState | null> {
