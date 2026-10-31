@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useStore, clock, settings, library, toast, fmt, type Lyrics } from "../lib/store";
+import { useStore, clock, settings, toast, fmt, type Lyrics } from "../lib/store";
 import { kvSet } from "../lib/db";
 import { saveLyrics } from "../lib/library";
 import { parseLyrics, toLRC, activeIndex, bakeOffset, shiftFrom, stamp, parseCueTime } from "../lib/lyrics";
