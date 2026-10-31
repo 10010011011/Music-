@@ -99,8 +99,8 @@ export default function Home({
             {playing ? "NOW PLAYING" : "READY TO PLAY"}
             {motif && <span>· {motif.code}</span>}
           </div>
-          <div className="track-title">{track?.title || "Afterglow"}</div>
-          <div className="track-artist">{track?.artist || "Sonora Sessions"}</div>
+          <div className="track-title">{track?.title || "Nothing playing"}</div>
+          <div className="track-artist">{track?.artist || "Select music from your library"}</div>
           <div className="feature-rule" />
           <div className="track-detail">
             <Icon n="audio-lines" s={17} />{" "}
