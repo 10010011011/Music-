@@ -43,8 +43,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       const status = await choosePersistentLibraryFolder();
       setStorageStatus(status);
       try {
-        await persistNativeTracks(library.get().tracks);
-        await persistNativeAppState(settings.get(), lyricsStore.get().map);
+        const state = library.get();
+        const queueIds = state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id));
+        const currentTrackId = state.tracks[state.queue[state.qpos]]?.id ?? null;
+        await persistNativeTracks(state.tracks);
+        await persistNativeAppState(settings.get(), lyricsStore.get().map, { queueIds, currentTrackId });
         toast("Sonora Library folder is ready");
       } catch (error) {
         console.error("Sonora folder connected but current library migration failed", error);
