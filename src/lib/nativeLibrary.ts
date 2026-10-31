@@ -60,8 +60,8 @@ function hashId(value: string) {
 
 function safeFileName(value: string, fallback: string) {
   const cleaned = value
-    .replace(/[\\\\/:*?"<>|\\u0000-\\u001f]/g, "_")
-    .replace(/^\\.+/, "")
+    .replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_")
+    .replace(/^\.+/, "")
     .trim()
     .slice(0, 120);
   return cleaned || fallback;
