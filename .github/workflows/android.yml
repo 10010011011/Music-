@@ -29,6 +29,8 @@ jobs:
           npm run build
       - name: TypeScript type check
         run: npm run lint
+      - name: Lyrics parser regression tests
+        run: npm run test:lyrics
       - name: Create Android project (first run)
         run: |
           if [ ! -d android ]; then npx cap add android; fi
