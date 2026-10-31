@@ -31,9 +31,11 @@ const legacyName = (id: string) => encodeURIComponent(id).replace(/%/g, "_") + "
 type SavedTrack = {
   id: string; fileName: string; type: string; size: number; lastModified: number;
   path: string; title: string; artist: string; album: string; duration?: number;
-  cover?: string; coverData?: string; rgTrack?: number; rgAlbum?: number;
-  embeddedLyrics?: string; tagsDone?: boolean; audioPath?: string;
-  privatePath?: string; sidecarPath?: string; sidecarName?: string; sidecarType?: string;
+  cover?: string; coverData?: string; coverPath?: string; coverType?: string;
+  coverSize?: number; coverLastModified?: number; rgTrack?: number; rgAlbum?: number;
+  embeddedLyrics?: string; tagsDone?: boolean; audioPath?: string; sidecarSize?: number;
+  sidecarLastModified?: number; privatePath?: string; privateCoverPath?: string;
+  sidecarPath?: string; sidecarName?: string; sidecarType?: string;
 };
 
 export interface PersistedAppState {
@@ -88,6 +90,17 @@ function textToBase64(value: string) {
 
 function base64ToText(value: string) {
   return new TextDecoder().decode(base64ToBytes(value));
+}
+
+function dataUrlToBlob(value?: string): Blob | undefined {
+  if (!value) return undefined;
+  const match = value.match(/^data:([^;,]+)?;base64,([\\s\\S]*)$/);
+  if (!match) return undefined;
+  return new Blob([base64ToBytes(match[2])], { type: match[1] || "image/jpeg" });
+}
+
+function blobToDataUrl(bytes: Uint8Array, type: string) {
+  return "data:" + (type || "image/jpeg") + ";base64," + bytesToBase64(bytes);
 }
 
 async function writeSafBlob(path: string, file: Blob, mimeType = "application/octet-stream") {
@@ -152,14 +165,18 @@ function savedTrack(track: Track, paths: { audioPath?: string; privatePath?: str
     artist: track.artist,
     album: track.album,
     duration: track.duration,
-    cover: track.cover?.startsWith("blob:") ? undefined : track.cover,
-    coverData: track.coverData,
+    cover: track.cover?.startsWith("blob:") || track.cover?.startsWith("data:") ? undefined : track.cover,
+    coverType: track.coverData?.match(/^data:([^;,]+)/)?.[1],
+    coverSize: dataUrlToBlob(track.coverData || track.cover)?.size,
+    coverLastModified: track.file.lastModified,
     rgTrack: track.rgTrack,
     rgAlbum: track.rgAlbum,
     embeddedLyrics: track.embeddedLyrics,
     tagsDone: track.tagsDone,
     sidecarName: track.sidecar?.name,
     sidecarType: track.sidecar?.type,
+    sidecarSize: track.sidecar?.size,
+    sidecarLastModified: track.sidecar?.lastModified,
     ...paths,
   };
 }
@@ -214,9 +231,18 @@ async function persistPrivateTracks(tracks: Track[]) {
           path: sidecarPath, data: await blobToBase64(track.sidecar), directory: Directory.Data,
         });
       }
-      saved.push(savedTrack(track, { privatePath, sidecarPath }));
+      let privateCoverPath: string | undefined;
+      const coverBlob = dataUrlToBlob(track.coverData || track.cover);
+      if (coverBlob) {
+        privateCoverPath = "sonora-library/" + hashId(track.id) + ".cover";
+        await Filesystem.writeFile({
+          path: privateCoverPath, data: await blobToBase64(coverBlob), directory: Directory.Data,
+        });
+      }
+      saved.push(savedTrack(track, { privatePath, sidecarPath, privateCoverPath }));
     } catch (error) {
       console.error("Sonora could not save audio", track.file.name, error);
+      throw error;
     }
   }
   await Filesystem.writeFile({
@@ -240,11 +266,23 @@ async function persistSafTracks(tracks: Track[], status: StorageStatus) {
     let sidecarPath: string | undefined;
     if (track.sidecar) {
       sidecarPath = "lyrics/" + hashId(track.id) + ".b64";
-      if (!old || old.sidecarPath !== sidecarPath) {
+      if (!old || old.sidecarPath !== sidecarPath ||
+          old.sidecarSize !== track.sidecar.size ||
+          old.sidecarLastModified !== track.sidecar.lastModified) {
         await writeSafBlob(sidecarPath, track.sidecar);
       }
     }
-    next.push(savedTrack(track, { audioPath, sidecarPath }));
+
+    let coverPath: string | undefined;
+    const coverBlob = dataUrlToBlob(track.coverData || track.cover);
+    if (coverBlob) {
+      coverPath = "covers/" + hashId(track.id) + ".b64";
+      if (!old || old.coverPath !== coverPath || old.coverSize !== coverBlob.size ||
+          old.coverLastModified !== track.file.lastModified) {
+        await writeSafBlob(coverPath, coverBlob);
+      }
+    }
+    next.push(savedTrack(track, { audioPath, sidecarPath, coverPath }));
   }
 
   await NativeStorage.writeFile({
@@ -258,16 +296,20 @@ async function persistSafTracks(tracks: Track[], status: StorageStatus) {
 export async function persistNativeTracks(tracks: Track[]) {
   if (!Capacitor.isNativePlatform()) return;
   const status = await getPersistentStorageStatus();
+  if (!status.configured) {
+    await persistPrivateTracks(tracks);
+    return;
+  }
   try {
-    if (status.configured) await persistSafTracks(tracks, status);
-    else await persistPrivateTracks(tracks);
+    await persistSafTracks(tracks, status);
   } catch (error) {
-    console.error("Sonora could not persist the shared music library", error);
+    console.error("Sonora could not save to the selected folder; keeping an app-private recovery copy", error);
     try {
       await persistPrivateTracks(tracks);
     } catch (fallbackError) {
-      console.error("Sonora private music backup failed", fallbackError);
+      console.error("Sonora private recovery copy also failed", fallbackError);
     }
+    throw error;
   }
 }
 
@@ -287,6 +329,14 @@ async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
           console.warn("Sonora could not restore sidecar lyrics", item.sidecarName, error);
         }
       }
+      let coverData: string | undefined;
+      if (item.coverPath) {
+        try {
+          coverData = blobToDataUrl(await readSafBlob(item.coverPath), item.coverType || "image/jpeg");
+        } catch (error) {
+          console.warn("Sonora could not restore artwork", item.fileName, error);
+        }
+      }
       restored.push({
         id: item.id,
         file: new File([audioBytes], item.fileName, { type: item.type || "application/octet-stream", lastModified: item.lastModified }),
@@ -295,8 +345,8 @@ async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
         artist: item.artist,
         album: item.album,
         duration: item.duration,
-        cover: item.coverData || item.cover,
-        coverData: item.coverData,
+        cover: coverData || item.cover,
+        coverData,
         rgTrack: item.rgTrack,
         rgAlbum: item.rgAlbum,
         embeddedLyrics: item.embeddedLyrics,
@@ -328,6 +378,13 @@ async function restorePrivateTracks(): Promise<Track[]> {
             if (typeof lyr.data === "string") sidecar = fromBase64(lyr.data, item.sidecarName || "lyrics.lrc", item.sidecarType || "text/plain", item.lastModified);
           } catch {}
         }
+        let coverData: string | undefined;
+        if (item.privateCoverPath) {
+          try {
+            const cover = await Filesystem.readFile({ path: item.privateCoverPath, directory: Directory.Data });
+            if (typeof cover.data === "string") coverData = blobToDataUrl(base64ToBytes(cover.data), item.coverType || "image/jpeg");
+          } catch {}
+        }
         restored.push({
           id: item.id,
           file: fromBase64(audio.data, item.fileName, item.type, item.lastModified),
@@ -336,8 +393,8 @@ async function restorePrivateTracks(): Promise<Track[]> {
           artist: item.artist,
           album: item.album,
           duration: item.duration,
-          cover: item.coverData || item.cover,
-          coverData: item.coverData,
+          cover: coverData || item.cover,
+          coverData,
           rgTrack: item.rgTrack,
           rgAlbum: item.rgAlbum,
           embeddedLyrics: item.embeddedLyrics,
@@ -359,14 +416,20 @@ export async function restoreNativeTracks(): Promise<Track[]> {
   const status = await getPersistentStorageStatus();
   if (status.configured) {
     const shared = await restoreSafTracks(status);
-    if (shared.length) return shared;
-    // Migrate music saved by earlier builds from app-private storage.
     const legacy = await restorePrivateTracks();
-    if (legacy.length) {
-      await persistSafTracks(legacy, status);
-      return legacy;
+    if (!legacy.length) return shared;
+    // Merge any tracks saved privately after a temporary SAF write failure or by an older build.
+    const merged = new Map(shared.map((track) => [track.id, track]));
+    for (const track of legacy) merged.set(track.id, track);
+    const all = Array.from(merged.values());
+    if (all.length) {
+      try {
+        await persistSafTracks(all, status);
+      } catch (error) {
+        console.warn("Sonora could not finish migrating its recovery copy", error);
+      }
     }
-    return [];
+    return all;
   }
   return restorePrivateTracks();
 }
