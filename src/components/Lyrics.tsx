@@ -73,7 +73,7 @@ export default function LyricsPage() {
       saveLyrics(track.id, parsed);
       setTapNext(0);
       setMode(parsed.lines.some((l) => l.t === null) ? "tap" : "preview");
-      toast(`${parsed.length} lyric lines imported`);
+      toast(`${parsed.lines.length} lyric lines imported`);
     }
     e.target.value = "";
   };
