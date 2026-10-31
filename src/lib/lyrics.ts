@@ -238,7 +238,7 @@ export function estimateWordTimings(
   if (!line || line.t == null || !line.text.trim()) return line?.words;
   if (line.words?.length) return line.words;
 
-  const tokens = line.text.match(/\\S+\\s*/gu) ?? [];
+  const tokens = line.text.match(/\S+\s*/gu) ?? [];
   if (!tokens.length) return undefined;
 
   const start = line.t;
@@ -276,7 +276,7 @@ export function estimateWordTimings(
   const speechWindow = Math.min(available, Math.max(2.2, tokens.length * 0.72));
   const span = Math.max(0.12, speechWindow * 0.9);
   const weights = tokens.map((token) => {
-    const count = Array.from(token.trim().replace(/[^\\p{L}\\p{N}]/gu, "")).length;
+    const count = Array.from(token.trim().replace(/[^\p{L}\p{N}]/gu, "")).length;
     return Math.max(1, count);
   });
   const total = weights.reduce((sum, weight) => sum + weight, 0);
