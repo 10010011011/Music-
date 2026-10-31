@@ -301,7 +301,9 @@ async function cleanupPrivateLibrary() {
 async function persistSafTracks(tracks: Track[], status: StorageStatus) {
   const existing = await readSafIndex(status);
   const oldById = new Map(existing.map((item) => [item.id, item]));
-  const next: SavedTrack[] = [];
+  const liveIds = new Set(tracks.filter((track) => !track.demo).map((track) => track.id));
+  // Keep records already stored in this folder, even when this app install currently has no in-memory copy.
+  const next: SavedTrack[] = existing.filter((item) => !liveIds.has(item.id));
 
   for (const track of tracks) {
     if (track.demo) continue;
