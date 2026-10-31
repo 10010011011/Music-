@@ -1,6 +1,6 @@
 import { library, settings, lyricsStore, toast, type Track, type Lyrics } from "./store";
 import { readTags, titleFromName } from "./tags";
-import { parseLyrics } from "./lyrics";
+import { parseLyrics, toLRC } from "./lyrics";
 import { kvGet, kvSet } from "./db";
 import { engine } from "./engine";
 import { persistNativeTracks } from "./mediaStore";
@@ -241,5 +241,13 @@ let saveT: number | undefined;
 export function saveLyrics(id: string, l: Lyrics) {
   lyricsStore.set((s) => ({ map: { ...s.map, [id]: l } }));
   clearTimeout(saveT);
-  saveT = window.setTimeout(() => kvSet("lyr:" + id, l), 300);
+  saveT = window.setTimeout(() => {
+    void kvSet("lyr:" + id, l);
+    // Keep a text source in step with edits so an old word-timing source
+    // cannot later overwrite a user's intentional line or timestamp changes.
+    void kvSet("lyr:source:" + id, {
+      text: toLRC(l),
+      name: l.source || "saved lyrics",
+    });
+  }, 300);
 }
