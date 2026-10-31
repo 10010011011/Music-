@@ -1212,6 +1212,28 @@ h1 em {
   font-weight: 700;
 }
 
+.no-lyrics-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.no-lyrics-actions button + button {
+  opacity: 0.72;
+}
+
+.lyrics-sync-note {
+  flex: none;
+  padding: 2px 10px 12px;
+  color: var(--muted);
+  opacity: 0.72;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .lyrics-bottom {
   padding: 18px 23px 22px;
   border-top: 1px solid var(--border);
@@ -3420,10 +3442,11 @@ input[type="range"].vslider::-webkit-slider-thumb {
 
   .now-lyrics-view {
     width: 100%;
-    height: min(41vh, 350px);
-    min-height: 210px;
+    height: min(48dvh, 430px);
+    min-height: 240px;
     padding: 24px 14px 38px;
     border-radius: 14px;
+    overscroll-behavior: contain;
   }
 
   .now-lyrics-view .lyric-line {

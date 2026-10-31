@@ -42,16 +42,20 @@ export async function ingest(
 
   const prev = replace ? [] : library.get().tracks;
   let attachedLyrics = 0;
+  const sidecarUpdates: Track[] = [];
   const updatedPrev = prev.map((track) => {
     const sidecar = side.get(keyOf(track.path)) || side.get(keyOf(track.file.name));
     if (!sidecar || (track.sidecar?.size === sidecar.size && track.sidecar?.lastModified === sidecar.lastModified)) {
       return track;
     }
     attachedLyrics++;
-    return { ...track, sidecar };
+    const updated = { ...track, sidecar };
+    sidecarUpdates.push(updated);
+    return updated;
   });
   const seen = new Set(updatedPrev.map((t) => t.id));
-  const tracks = [...updatedPrev, ...fresh.filter((t) => !seen.has(t.id))];
+  const newTracks = fresh.filter((t) => !seen.has(t.id));
+  const tracks = [...updatedPrev, ...newTracks];
   const queue = tracks.map((_, i) => i);
   const nextQpos = library.get().qpos >= 0 && !replace ? library.get().qpos : tracks.length ? 0 : -1;
 
@@ -62,6 +66,19 @@ export async function ingest(
     loading: false,
     folderName: folderName || library.get().folderName,
   });
+
+  // A matching .lrc/.vtt file can be added after its audio track. Parse it
+  // immediately so the live lyrics surface updates without requiring a track change.
+  const lyricImports = [...sidecarUpdates, ...newTracks.filter((track) => track.sidecar)];
+  await Promise.all(lyricImports.map(async (track) => {
+    if (!track.sidecar) return;
+    try {
+      const parsed = parseLyrics(await track.sidecar.text(), track.sidecar.name);
+      if (parsed.lines.length) saveLyrics(track.id, parsed);
+    } catch (error) {
+      console.warn("Sonora could not parse imported sidecar lyrics", track.sidecar.name, error);
+    }
+  }));
 
   let persistError: unknown;
   try {
