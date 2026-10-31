@@ -13,9 +13,9 @@ export const THEMES: {
   { id: "dark", name: "Nocturne", badge: "DARK", desc: "Warm obsidian & lime-chartreuse" },
   { id: "light", name: "Daylight", badge: "LIGHT", desc: "Soft paper & botanical olive" },
   { id: "system", name: "System", badge: "AUTO", desc: "Follows device appearance" },
-  { id: "miku", name: "Miku", badge: "CV01 · 39", desc: "Teal #39C5BB & ribbon pink cyber-grid" },
-  { id: "teto", name: "Teto", badge: "UTAU · 0401", desc: "Crimson drills & warm baguette gold" },
-  { id: "neru", name: "Neru", badge: "DEN · 02", desc: "Canary yellow & flip-phone dot matrix" },
+  { id: "miku", name: "Miku", badge: "RIBBON", desc: "Soft waveform grid with ribbon-like accents" },
+  { id: "teto", name: "Teto", badge: "SPIRAL", desc: "Twin spiral details in rose and warm gold" },
+  { id: "neru", name: "Neru", badge: "LCD", desc: "Compact LCD-style dots and amber highlights" },
 ];
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
