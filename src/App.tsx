@@ -58,11 +58,15 @@ export default function App() {
     let saveTimer: number | undefined;
     let unsubscribeSettings: (() => void) | undefined;
     let unsubscribeLyrics: (() => void) | undefined;
+    let unsubscribeLibrary: (() => void) | undefined;
 
     const schedulePersistentState = () => {
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => {
-        void persistNativeAppState(settings.get(), lyricsStore.get().map);
+        const state = library.get();
+        const queueIds = state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id));
+        const currentTrackId = state.tracks[state.queue[state.qpos]]?.id ?? null;
+        void persistNativeAppState(settings.get(), lyricsStore.get().map, { queueIds, currentTrackId });
       }, 450);
     };
 
@@ -77,15 +81,23 @@ export default function App() {
       if (savedState?.lyrics) lyricsStore.set({ map: savedState.lyrics });
 
       if (savedTracks.length) {
-        const queue = savedTracks.map((_, i) => i);
-        library.set({ tracks: savedTracks, queue, qpos: 0, folderName: "Sonora Library" });
-        if (!engine.el.src) engine.primeAt(0);
+        const indexById = new Map(savedTracks.map((track, index) => [track.id, index]));
+        const restoredQueue = (savedState?.queueIds || [])
+          .map((id) => indexById.get(id))
+          .filter((index): index is number => index !== undefined);
+        const used = new Set(restoredQueue);
+        const queue = [...restoredQueue, ...savedTracks.map((_, index) => index).filter((index) => !used.has(index))];
+        const currentIndex = savedState?.currentTrackId ? indexById.get(savedState.currentTrackId) : undefined;
+        const qpos = currentIndex === undefined ? 0 : Math.max(0, queue.indexOf(currentIndex));
+        library.set({ tracks: savedTracks, queue, qpos, folderName: "Sonora Library" });
+        if (!engine.el.src) engine.primeAt(qpos);
         if (savedTracks.some((track) => !track.tagsDone)) void loadTagsInBackground();
       }
 
       // Subscribe after restoring so the restored snapshot is not overwritten by defaults.
       unsubscribeSettings = settings.sub(schedulePersistentState);
       unsubscribeLyrics = lyricsStore.sub(schedulePersistentState);
+      unsubscribeLibrary = library.sub(schedulePersistentState);
       schedulePersistentState();
     };
 
@@ -111,6 +123,7 @@ export default function App() {
       window.clearTimeout(saveTimer);
       unsubscribeSettings?.();
       unsubscribeLyrics?.();
+      unsubscribeLibrary?.();
     };
   }, []);
 
