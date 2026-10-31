@@ -3,7 +3,7 @@ import { readTags, titleFromName } from "./tags";
 import { parseLyrics } from "./lyrics";
 import { kvGet, kvSet } from "./db";
 import { engine } from "./engine";
-import { persistNativeTracks } from "./nativeLibrary";
+import { persistNativeTracks } from "./mediaStore";
 
 const AUDIO = /\.(mp3|flac|wav|ogg|oga|opus|m4a|aac|webm|weba|mp4|wma|aiff?|alac)$/i;
 const LYR = /\.(lrc|srt|vtt|txt)$/i;
