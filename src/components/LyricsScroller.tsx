@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { clock, lyricsStore, useStore, type LyricLine } from "../lib/store";
+import { clock, lyricsStore, player, useStore, type LyricLine } from "../lib/store";
 import { loadLyricsFor } from "../lib/library";
-import { activeIndex, activeWordIndex } from "../lib/lyrics";
+import { activeIndex, activeWordIndex, estimateWordTimings } from "../lib/lyrics";
 import { engine } from "../lib/engine";
 import { useCurrent } from "./Player";
 import { Icon } from "./ui";
@@ -38,6 +38,11 @@ export function LyricText({
   );
 }
 
+/**
+ * Shared lyric reader for the desktop side panel and the full-screen player.
+ * Exact enhanced-LRC/WebVTT word times are used when available. Ordinary
+ * line-timed LRC gets an explicitly approximate word-by-word reading effect.
+ */
 export function LyricsScroller({
   className = "lyrics-body",
   onOpenStudio,
@@ -48,6 +53,7 @@ export function LyricsScroller({
   const track = useCurrent();
   const lyrics = useStore(lyricsStore, state => (track ? state.map[track.id] : undefined));
   const time = useStore(clock, state => state.t);
+  const duration = useStore(player, state => state.duration);
   const active = activeIndex(lyrics, time);
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledAt = useRef(0);
@@ -70,6 +76,7 @@ export function LyricsScroller({
 
   const lines = lyrics?.lines ?? [];
   const offset = lyrics?.offset ?? 0;
+  const trackDuration = Math.max(duration || 0, track?.duration || 0);
 
   return (
     <div
@@ -79,24 +86,38 @@ export function LyricsScroller({
       onTouchMove={() => { userScrolledAt.current = Date.now(); }}
     >
       {lines.length ? (
-        lines.map((line, index) => (
-          <button
-            type="button"
-            key={index}
-            data-line={index}
-            className={
-              "lyric-line"
-              + (active === index ? " active" : "")
-              + (index < active ? " past" : "")
-            }
-            onClick={() => {
-              if (line.t != null) engine.seek(line.t + offset);
-            }}
-          >
-            <span className="lyric-marker" />
-            <LyricText line={line} time={time} offset={offset} active={active === index} />
-          </button>
-        ))
+        lines.map((line, index) => {
+          // Estimation is applied only to the active line. This keeps rerenders
+          // light even for large lyric files while still giving standard LRC
+          // the word-following effect users expect.
+          const estimatedWords = index === active && !line.words?.length
+            ? estimateWordTimings(lyrics!, index, trackDuration)
+            : undefined;
+          const displayLine = estimatedWords?.length ? { ...line, words: estimatedWords } : line;
+
+          return (
+            <button
+              type="button"
+              key={index}
+              data-line={index}
+              aria-current={active === index ? "true" : undefined}
+              aria-label={line.text}
+              className={
+                "lyric-line"
+                + (active === index ? " active" : "")
+                + (index < active ? " past" : "")
+              }
+              onClick={() => {
+                if (line.t == null) return;
+                engine.seek(line.t + offset);
+                if (!player.get().playing) void engine.play();
+              }}
+            >
+              <span className="lyric-marker" />
+              <LyricText line={displayLine} time={time} offset={offset} active={active === index} />
+            </button>
+          );
+        })
       ) : (
         <div className="no-lyrics">
           <Icon n="mic" s={28} />
