@@ -195,7 +195,7 @@ export function PlayerBar({
   onNavigate,
 }: {
   onOpenSettings: () => void;
-  onNavigate: (v: "room" | "library" | "lyrics" | "sound") => void;
+  onNavigate: (v: "room" | "library" | "lyrics" | "sound" | "player") => void;
 }) {
   const track = useCurrent();
   const position = useStore(clock, (s) => s.t);
@@ -220,7 +220,7 @@ export function PlayerBar({
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
-          onClick={() => onNavigate("room")}
+          onClick={() => onNavigate("player")}
           title="Open Listening Room"
         >
           <Cover src={track?.cover} size={49} className="player-cover" alt={track?.title || "Cover"} />
