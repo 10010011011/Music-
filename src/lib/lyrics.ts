@@ -1,122 +1,222 @@
-import type { LyricLine, Lyrics } from "./store";
+import type { LyricLine, Lyrics, LyricWord } from "./store";
 
-const TAG = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
-const WORD = /<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g;
+const TAG = /\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?\\]/g;
+const INLINE_TIME = /<((?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)>/g;
 
 function toSec(m: string, s: string, f?: string) {
-  let frac = 0;
-  if (f) frac = parseInt(f, 10) / Math.pow(10, f.length);
+  const frac = f ? parseInt(f, 10) / Math.pow(10, f.length) : 0;
   return parseInt(m, 10) * 60 + parseInt(s, 10) + frac;
 }
 
-export function parseCueTime(s: string): number | null {
-  const m = s.trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})(?:[.,](\d{1,3}))?$/);
-  if (!m) {
-    const sub = s.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/);
-    if (!sub) return null;
-    return (sub[1] ? parseInt(sub[1]) * 3600 : 0) + parseInt(sub[2]) * 60 + parseInt(sub[3]) + parseInt(sub[4]) / Math.pow(10, sub[4].length);
-  }
-  return (m[1] ? parseInt(m[1]) * 3600 : 0) + parseInt(m[2]) * 60 + parseInt(m[3]) + (m[4] ? parseInt(m[4]) / Math.pow(10, m[4].length) : 0);
+export function parseCueTime(value: string): number | null {
+  const match = value.trim().match(/^(?:(\\d+):)?(\\d{1,2}):(\\d{2})(?:[.,](\\d{1,3}))?$/);
+  if (!match) return null;
+  return (match[1] ? parseInt(match[1], 10) * 3600 : 0)
+    + parseInt(match[2], 10) * 60
+    + parseInt(match[3], 10)
+    + (match[4] ? parseInt(match[4], 10) / Math.pow(10, match[4].length) : 0);
 }
 
-export function parseLyrics(text: string, source = "text"): Lyrics {
-  text = text.replace(/\r\n?/g, "\n").replace(/^\uFEFF/, "");
-  // SRT / VTT
-  if (/-->/.test(text)) {
-    const lines: LyricLine[] = [];
-    for (const block of text.split(/\n\s*\n/)) {
-      const rows = block.split("\n").filter((r) => r.trim() && r.trim() !== "WEBVTT");
-      const ti = rows.findIndex((r) => r.includes("-->"));
-      if (ti < 0) continue;
-      const t = parseCueTime(rows[ti].split("-->")[0]);
-      const txt = rows.slice(ti + 1).join(" ").replace(/<[^>]+>/g, "").trim();
-      if (txt) lines.push({ t, text: txt });
+function cleanCueMarkup(value: string) {
+  return value
+    .replace(/<\\/?(?:c|v|lang|b|i|u)(?:\\s+[^>]*)?>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim();
+}
+
+/**
+ * Enhanced LRC marks the beginning of each spoken word with <mm:ss.xx>.
+ * WebVTT karaoke cues use the same idea with <hh:mm:ss.mmm>.
+ * Text between markers belongs to the preceding marker.
+ */
+function parseInlineWords(value: string): LyricWord[] | undefined {
+  const words: LyricWord[] = [];
+  let current: LyricWord | undefined;
+  let prefix = "";
+  let cursor = 0;
+  INLINE_TIME.lastIndex = 0;
+
+  let match: RegExpExecArray | null;
+  while ((match = INLINE_TIME.exec(value))) {
+    const between = value.slice(cursor, match.index);
+    if (current) current.text += between;
+    else prefix += between;
+
+    const time = parseCueTime(match[1]);
+    if (time !== null) {
+      if (current) words.push(current);
+      current = { t: time, text: "" };
+    } else if (current) {
+      current.text += match[0];
+    } else {
+      prefix += match[0];
     }
-    return { lines: sortLines(lines), offset: 0, source };
+    cursor = INLINE_TIME.lastIndex;
   }
-  // LRC (with multi-tag lines, [offset:], enhanced word tags)
-  let offset = 0;
-  const lines: LyricLine[] = [];
-  let timed = 0;
-  for (const raw of text.split("\n")) {
-    const off = raw.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/i);
-    if (off) {
-      offset = parseInt(off[1], 10) / 1000; // LRC: positive = lyrics earlier
-      continue;
-    }
-    if (/^\s*\[[a-z]+:.*\]\s*$/i.test(raw)) continue; // metadata
-    const times: number[] = [];
-    TAG.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    let lastEnd = 0;
-    while ((m = TAG.exec(raw))) {
-      if (m.index !== lastEnd && raw.slice(lastEnd, m.index).trim()) break;
-      times.push(toSec(m[1], m[2], m[3]));
-      lastEnd = m.index + m[0].length;
-    }
-    const txt = raw.slice(lastEnd).replace(WORD, "").trim();
-    if (times.length) {
-      timed++;
-      for (const t of times) lines.push({ t, text: txt });
-    } else if (txt) lines.push({ t: null, text: txt });
-  }
-  const res = timed ? sortLines(lines) : lines;
-  if (offset) res.forEach((l) => l.t != null && (l.t = Math.max(0, l.t - offset)));
-  return { lines: res, offset: 0, source };
+
+  if (!current) return undefined;
+  current.text += value.slice(cursor);
+  current.text = prefix + current.text;
+  words.push(current);
+
+  const cleaned = words
+    .map(word => ({ ...word, text: cleanCueMarkup(word.text) }))
+    .filter(word => word.text.length > 0);
+  if (!cleaned.length) return undefined;
+
+  // Preserve the spaces between words while avoiding accidental blank edges.
+  cleaned[0].text = cleaned[0].text.replace(/^\\s+/, "");
+  cleaned[cleaned.length - 1].text = cleaned[cleaned.length - 1].text.replace(/\\s+$/, "");
+  return cleaned;
 }
 
 function sortLines(lines: LyricLine[]) {
-  if (lines.some((l) => l.t == null)) return lines;
+  if (lines.some(line => line.t == null)) return lines;
   return [...lines].sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
 }
 
-export function stamp(t: number) {
-  const s = Math.max(0, t);
-  const m = Math.floor(s / 60);
-  const r = s - m * 60;
-  return `${String(m).padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
+function shiftWords(words: LyricWord[] | undefined, delta: number) {
+  if (!words || !delta) return words;
+  return words.map(word => ({ ...word, t: Math.max(0, word.t + delta) }));
 }
 
-export function toLRC(l: Lyrics, meta?: { ti?: string; ar?: string }) {
-  const out: string[] = [];
-  if (meta?.ti) out.push(`[ti:${meta.ti}]`);
-  if (meta?.ar) out.push(`[ar:${meta.ar}]`);
-  for (const line of l.lines) {
-    out.push(line.t == null ? line.text : `[${stamp(Math.max(0, line.t + l.offset))}]${line.text}`);
+export function parseLyrics(input: string, source = "text"): Lyrics {
+  const text = input.replace(/\\r\\n?/g, "\\n").replace(/^\\uFEFF/, "");
+  const lines: LyricLine[] = [];
+
+  // SRT / WebVTT. WebVTT's inline timestamp tags are retained as word timings.
+  if (/-->/.test(text)) {
+    for (const block of text.split(/\\n\\s*\\n/)) {
+      const rows = block.split("\\n").filter(row => row.trim() && row.trim() !== "WEBVTT");
+      const timeIndex = rows.findIndex(row => row.includes("-->"));
+      if (timeIndex < 0) continue;
+      const cueTime = parseCueTime(rows[timeIndex].split("-->")[0]);
+      const rawText = rows.slice(timeIndex + 1).join(" ");
+      const words = parseInlineWords(rawText);
+      const lineText = words ? words.map(word => word.text).join("").trim() : cleanCueMarkup(rawText);
+      if (lineText) lines.push({ t: cueTime, text: lineText, ...(words ? { words } : {}) });
+    }
+    return { lines: sortLines(lines), offset: 0, source };
   }
-  return out.join("\n");
+
+  // LRC, including repeated line timestamps, [offset:], and enhanced word tags.
+  let offset = 0;
+  let timed = 0;
+  for (const raw of text.split("\\n")) {
+    const offsetTag = raw.match(/^\\s*\\[offset:\\s*([+-]?\\d+)\\s*\\]/i);
+    if (offsetTag) {
+      offset = parseInt(offsetTag[1], 10) / 1000;
+      continue;
+    }
+    if (/^\\s*\\[[a-z]+:.*\\]\\s*$/i.test(raw)) continue;
+
+    const lineTimes: number[] = [];
+    TAG.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let lastEnd = 0;
+    while ((match = TAG.exec(raw))) {
+      if (match.index !== lastEnd && raw.slice(lastEnd, match.index).trim()) break;
+      lineTimes.push(toSec(match[1], match[2], match[3]));
+      lastEnd = match.index + match[0].length;
+    }
+
+    const payload = raw.slice(lastEnd);
+    const words = parseInlineWords(payload);
+    const lineText = words
+      ? words.map(word => word.text).join("").trim()
+      : cleanCueMarkup(payload.replace(/<\\d{1,3}:\\d{1,2}(?:[.:]\\d{1,3})?>/g, ""));
+
+    if (!lineText) continue;
+
+    if (lineTimes.length) {
+      timed++;
+      for (const time of lineTimes) {
+        const delta = words?.length ? time - words[0].t : 0;
+        lines.push({ t: time, text: lineText, ...(words ? { words: shiftWords(words, delta) } : {}) });
+      }
+    } else if (words?.length) {
+      timed++;
+      lines.push({ t: words[0].t, text: lineText, words });
+    } else {
+      lines.push({ t: null, text: lineText });
+    }
+  }
+
+  const result = timed ? sortLines(lines) : lines;
+  if (offset) {
+    for (const line of result) {
+      if (line.t != null) line.t = Math.max(0, line.t - offset);
+      if (line.words) line.words = line.words.map(word => ({ ...word, t: Math.max(0, word.t - offset) }));
+    }
+  }
+  return { lines: result, offset: 0, source };
 }
 
-export function bakeOffset(l: Lyrics): Lyrics {
+export function stamp(seconds: number) {
+  const value = Math.max(0, seconds);
+  const minutes = Math.floor(value / 60);
+  const remainder = value - minutes * 60;
+  return String(minutes).padStart(2, "0") + ":" + remainder.toFixed(2).padStart(5, "0");
+}
+
+export function toLRC(lyrics: Lyrics, meta?: { ti?: string; ar?: string }) {
+  const output: string[] = [];
+  if (meta?.ti) output.push("[ti:" + meta.ti + "]");
+  if (meta?.ar) output.push("[ar:" + meta.ar + "]");
+  for (const line of lyrics.lines) {
+    const body = line.words?.length
+      ? line.words.map(word => "<" + stamp(word.t + lyrics.offset) + ">" + word.text).join("")
+      : line.text;
+    output.push(line.t == null ? body : "[" + stamp(line.t + lyrics.offset) + "]" + body);
+  }
+  return output.join("\\n");
+}
+
+export function bakeOffset(lyrics: Lyrics): Lyrics {
   return {
-    ...l,
+    ...lyrics,
     offset: 0,
-    lines: l.lines.map((x) => ({
-      ...x,
-      t: x.t == null ? null : Math.round(Math.max(0, x.t + l.offset) * 100) / 100,
+    lines: lyrics.lines.map(line => ({
+      ...line,
+      t: line.t == null ? null : Math.max(0, line.t + lyrics.offset),
+      words: shiftWords(line.words, lyrics.offset),
     })),
   };
 }
 
-export function shiftFrom(l: Lyrics, fromIdx: number, delta: number): Lyrics {
+export function shiftFrom(lyrics: Lyrics, fromIndex: number, delta: number): Lyrics {
   return {
-    ...l,
-    lines: l.lines.map((x, i) =>
-      i >= fromIdx && x.t != null
-        ? { ...x, t: Math.round(Math.max(0, x.t + delta) * 100) / 100 }
-        : x
-    ),
+    ...lyrics,
+    lines: lyrics.lines.map((line, index) => {
+      if (index < fromIndex) return line;
+      return {
+        ...line,
+        t: line.t == null ? null : Math.max(0, line.t + delta),
+        words: shiftWords(line.words, delta),
+      };
+    }),
   };
 }
 
-export function activeIndex(l: Lyrics | undefined, time: number) {
-  if (!l) return -1;
-  let idx = -1;
-  for (let i = 0; i < l.lines.length; i++) {
-    const t = l.lines[i].t;
+export function activeIndex(lyrics: Lyrics | undefined, time: number) {
+  if (!lyrics) return -1;
+  let index = -1;
+  for (let i = 0; i < lyrics.lines.length; i++) {
+    const t = lyrics.lines[i].t;
     if (t == null) continue;
-    if (t + l.offset <= time + 0.08) idx = i;
+    if (t + lyrics.offset <= time + 0.05) index = i;
     else break;
   }
-  return idx;
+  return index;
+}
+
+export function activeWordIndex(line: LyricLine | undefined, time: number, offset = 0) {
+  if (!line?.words?.length) return -1;
+  let index = -1;
+  for (let i = 0; i < line.words.length; i++) {
+    if (line.words[i].t + offset <= time + 0.035) index = i;
+    else break;
+  }
+  return index;
 }
