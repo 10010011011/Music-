@@ -54,16 +54,24 @@ export async function ingest(
     folderName: folderName || library.get().folderName,
   });
 
-  await persistNativeTracks(tracks);
+  let persistError: unknown;
+  try {
+    await persistNativeTracks(tracks);
+  } catch (error) {
+    persistError = error;
+    console.error("Sonora import could not be saved to durable storage", error);
+  }
 
   if (nextQpos >= 0 && !engine.el.src) {
     engine.primeAt(nextQpos);
   }
 
   if (!silent && fresh.length > 0) {
-    toast(`${fresh.length} track${fresh.length === 1 ? "" : "s"} added${side.size ? ` · ${side.size} LRC matched` : ""}`);
+    toast(persistError
+      ? "Music added, but saving failed. Check Settings → Music storage."
+      : `${fresh.length} track${fresh.length === 1 ? "" : "s"} added${side.size ? ` · ${side.size} LRC matched` : ""}`);
   }
-  loadTagsInBackground();
+  void loadTagsInBackground();
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -103,7 +111,11 @@ export async function loadTagsInBackground() {
     if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0));
   }
   library.set({ tracks: [...library.get().tracks] });
-  await persistNativeTracks(library.get().tracks);
+  try {
+    await persistNativeTracks(library.get().tracks);
+  } catch (error) {
+    console.error("Sonora could not save scanned tags and artwork", error);
+  }
 }
 
 export function shuffled(q: number[], keepFirst: number) {
