@@ -17,9 +17,6 @@ export default function Home({
     <div className="main-content room-content android-home">
       <div className="home-heading">
         <h1>Home</h1>
-        <button type="button" className="text-action" onClick={() => onNavigate("library")}>
-          Library <Icon n="right" s={16} />
-        </button>
       </div>
 
       <section className="home-now-playing">
