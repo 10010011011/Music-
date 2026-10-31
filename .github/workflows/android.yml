@@ -30,6 +30,8 @@ jobs:
       - name: Create Android project (first run)
         run: |
           if [ ! -d android ]; then npx cap add android; fi
+      - name: Install Sonora persistent folder storage
+        run: bash scripts/install-sonora-storage-plugin.sh
       - name: Add audio & media permissions (no auto RECORD_AUDIO)
         run: |
           M=android/app/src/main/AndroidManifest.xml
