@@ -63,9 +63,18 @@ export interface Track {
   subtitleTag?: string;
 }
 
+export interface LyricWord {
+  /** Absolute playback time in seconds at which this word begins. */
+  t: number;
+  /** Text spoken/sung from this timestamp until the next word. */
+  text: string;
+}
+
 export interface LyricLine {
   t: number | null;
   text: string;
+  /** Present only when the source provides real word-level timestamps (enhanced LRC/WebVTT). */
+  words?: LyricWord[];
 }
 
 export interface Lyrics {
