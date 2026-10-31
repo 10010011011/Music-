@@ -66,6 +66,15 @@ export async function ingest(
   loadTagsInBackground();
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Could not read artwork"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 let tagRun = 0;
 async function loadTagsInBackground() {
   const run = ++tagRun;
@@ -83,7 +92,10 @@ async function loadTagsInBackground() {
     if (tg.title) t.title = tg.title;
     if (tg.artist) t.artist = tg.artist;
     if (tg.album) t.album = tg.album;
-    if (tg.cover) t.cover = URL.createObjectURL(tg.cover);
+    if (tg.cover) {
+      t.coverData = await blobToDataUrl(tg.cover);
+      t.cover = t.coverData;
+    }
     t.rgTrack = tg.rgTrack;
     t.rgAlbum = tg.rgAlbum;
     t.embeddedLyrics = tg.lyrics;
@@ -91,6 +103,7 @@ async function loadTagsInBackground() {
     if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0));
   }
   library.set({ tracks: [...library.get().tracks] });
+  await persistNativeTracks(library.get().tracks);
 }
 
 export function shuffled(q: number[], keepFirst: number) {
