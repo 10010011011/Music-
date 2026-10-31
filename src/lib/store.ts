@@ -53,6 +53,7 @@ export interface Track {
   album: string;
   duration?: number;
   cover?: string;
+  coverData?: string;
   rgTrack?: number;
   rgAlbum?: number;
   embeddedLyrics?: string;
