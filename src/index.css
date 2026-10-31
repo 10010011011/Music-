@@ -2630,3 +2630,432 @@ input[type="range"].vslider::-webkit-slider-thumb {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+/* Android-first music player refinements */
+.brand-logo {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
+.mobile-brand {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-family: "Manrope", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+.mobile-brand img {
+  width: 29px;
+  height: 29px;
+}
+
+.android-home .home-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 0 22px;
+}
+
+.android-home .home-heading h1 {
+  font-size: 28px;
+  margin: 0;
+  letter-spacing: -1px;
+}
+
+.android-home .section-head {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.android-home .section-head h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.home-now-playing {
+  margin-bottom: 30px;
+}
+
+.android-home .feature-track[data-theme-card] {
+  gap: 17px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background-color: var(--panel);
+  box-shadow: 0 12px 30px -24px color-mix(in srgb, var(--accent) 42%, transparent);
+  overflow: hidden;
+}
+
+.home-cover {
+  flex: none;
+  border-radius: 10px;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.2);
+}
+
+.android-home .feature-info {
+  position: relative;
+  z-index: 1;
+}
+
+.android-home .track-title {
+  font-size: clamp(18px, 2.4vw, 27px);
+  margin: 7px 0 3px;
+}
+
+.android-home .track-artist {
+  font-size: 13px;
+}
+
+.android-home .feature-buttons {
+  margin-top: 13px;
+  gap: 12px;
+}
+
+.android-home .round-play {
+  width: 40px;
+  height: 40px;
+}
+
+.android-home .like-button {
+  width: 38px;
+  height: 38px;
+}
+
+.android-home .queue-section {
+  margin-top: 0;
+}
+
+.home-list-empty {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty-library {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.empty-library-icon {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.empty-library h3 {
+  margin: 0 0 3px;
+  font-size: 14px;
+}
+
+.empty-library p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.empty-library .accent-button {
+  margin-left: auto;
+  padding: 0 11px;
+}
+
+/* Character editions use distinct, restrained surface details as well as colour. */
+[data-theme="miku"] .android-home .feature-track[data-theme-card] {
+  background-image:
+    radial-gradient(ellipse 44px 76px at 88% 18%, transparent 58%, rgba(225, 40, 133, 0.19) 60%, transparent 63%),
+    radial-gradient(ellipse 35px 64px at 94% 28%, transparent 58%, rgba(57, 197, 187, 0.22) 60%, transparent 63%),
+    linear-gradient(rgba(57, 197, 187, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 197, 187, 0.035) 1px, transparent 1px);
+  background-size: auto, auto, 20px 20px, 20px 20px;
+}
+
+[data-theme="teto"] .android-home .feature-track[data-theme-card] {
+  background-image:
+    radial-gradient(ellipse 42px 42px at 90% 16%, transparent 57%, rgba(233, 181, 111, 0.2) 59%, transparent 63%),
+    repeating-linear-gradient(135deg, transparent 0 13px, rgba(240, 84, 108, 0.045) 13px 15px);
+}
+
+[data-theme="neru"] .android-home .feature-track[data-theme-card] {
+  background-image:
+    radial-gradient(rgba(255, 214, 10, 0.19) 1px, transparent 1.5px),
+    linear-gradient(135deg, rgba(255, 138, 31, 0.06), transparent 58%);
+  background-size: 9px 9px, auto;
+  background-position: right top, center;
+}
+
+.theme-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.theme-swatch::after {
+  content: "";
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.theme-swatch.miku::after {
+  width: 7px;
+  height: 12px;
+  border: 1.5px solid #e12885;
+  border-radius: 80% 20% 80% 20%;
+  background: transparent;
+  transform: rotate(-30deg);
+}
+
+.theme-swatch.teto::after {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid #e9b56f;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px #f0546c;
+}
+
+.theme-swatch.neru::after {
+  width: 3px;
+  height: 3px;
+  border-radius: 0;
+  background: #ff8a1f;
+  box-shadow: 5px 0 #ff8a1f, -5px 0 #ff8a1f, 0 5px #ff8a1f, 0 -5px #ff8a1f;
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    min-height: 100dvh;
+  }
+
+  .main-area {
+    order: 1;
+  }
+
+  .topbar {
+    min-height: calc(58px + env(safe-area-inset-top, 0px));
+    height: calc(58px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 16px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bar);
+  }
+
+  .mobile-brand {
+    display: flex;
+  }
+
+  .desktop-breadcrumb {
+    display: none;
+  }
+
+  .top-actions {
+    gap: 7px;
+  }
+
+  .top-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--input);
+    color: var(--text);
+  }
+
+  .import-button {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 12px;
+    font-size: 0;
+  }
+
+  .import-button svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .main-content {
+    padding: 19px 16px 24px;
+  }
+
+  .player-bar {
+    order: 2;
+    flex: none;
+    height: 68px;
+    margin: 0 10px 8px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bar);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+  }
+
+  .player-song {
+    min-width: 0;
+    padding: 0 0 0 10px;
+    gap: 10px;
+  }
+
+  .player-cover {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+  }
+
+  .player-song-text {
+    gap: 3px;
+  }
+
+  .player-song-text b {
+    font-size: 12px;
+  }
+
+  .player-song-text small {
+    font-size: 11px;
+  }
+
+  .player-heart {
+    margin: 0 8px 0 0;
+  }
+
+  .player-center {
+    width: auto;
+    padding: 0 13px;
+  }
+
+  .transport {
+    gap: 0;
+  }
+
+  .transport button:first-child,
+  .transport button:not(.transport-play),
+  .progress-row,
+  .player-tools {
+    display: none;
+  }
+
+  .transport .transport-play {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+
+  .sidebar {
+    order: 3;
+    flex: none;
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+    border-top: 1px solid var(--border);
+    background: var(--bar);
+  }
+
+  .side-nav {
+    height: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 4px 8px 0;
+    gap: 4px;
+  }
+
+  .side-nav button {
+    height: 52px;
+    min-height: 52px;
+    border-radius: 12px;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .side-nav button.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 0;
+  }
+
+  .android-home .home-heading {
+    margin-bottom: 18px;
+  }
+
+  .android-home .home-heading h1 {
+    font-size: 27px;
+  }
+
+  .android-home .feature-track[data-theme-card] {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .home-cover {
+    width: 96px !important;
+    height: 96px !important;
+    border-radius: 9px;
+  }
+
+  .android-home .track-title {
+    font-size: 18px;
+    letter-spacing: -0.6px;
+  }
+
+  .android-home .track-artist {
+    font-size: 12px;
+  }
+
+  .android-home .feature-buttons {
+    margin-top: 10px;
+  }
+
+  .android-home .home-now-playing {
+    margin-bottom: 25px;
+  }
+
+  .empty-library {
+    flex-wrap: wrap;
+  }
+
+  .empty-library .accent-button {
+    margin-left: 60px;
+  }
+
+  .queue-row {
+    height: 64px;
+    gap: 10px;
+  }
+
+  .toast {
+    bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 420px) {
+  .empty-library {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .empty-library .accent-button {
+    margin-left: 56px;
+  }
+
+  .android-home .feature-track[data-theme-card] {
+    align-items: center;
+  }
+}
