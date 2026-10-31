@@ -13,6 +13,14 @@ interface SonoraStoragePlugin {
   getStatus(): Promise<StorageStatus>;
   writeFile(options: { path: string; data: string; mimeType?: string }): Promise<{ path: string; size: number }>;
   readFile(options: { path: string }): Promise<{ data: string }>;
+  beginWrite(options: { path: string; mimeType?: string }): Promise<{ token: string }>;
+  appendWrite(options: { token: string; data: string }): Promise<{ bytes: number }>;
+  finishWrite(options: { token: string }): Promise<void>;
+  abortWrite(options: { token: string }): Promise<void>;
+  beginRead(options: { path: string }): Promise<{ token: string; size: number }>;
+  readChunk(options: { token: string }): Promise<{ data: string; done: boolean }>;
+  finishRead(options: { token: string }): Promise<void>;
+  abortRead(options: { token: string }): Promise<void>;
 }
 
 const NativeStorage = registerPlugin<SonoraStoragePlugin>("SonoraStorage");
@@ -80,6 +88,49 @@ function textToBase64(value: string) {
 
 function base64ToText(value: string) {
   return new TextDecoder().decode(base64ToBytes(value));
+}
+
+async function writeSafBlob(path: string, file: Blob, mimeType = "application/octet-stream") {
+  const session = await NativeStorage.beginWrite({ path, mimeType });
+  try {
+    const chunkSize = 256 * 1024;
+    for (let offset = 0; offset < file.size; offset += chunkSize) {
+      const chunk = new Uint8Array(await file.slice(offset, Math.min(file.size, offset + chunkSize)).arrayBuffer());
+      await NativeStorage.appendWrite({ token: session.token, data: bytesToBase64(chunk) });
+    }
+    await NativeStorage.finishWrite({ token: session.token });
+  } catch (error) {
+    await NativeStorage.abortWrite({ token: session.token }).catch(() => {});
+    throw error;
+  }
+}
+
+async function readSafBlob(path: string): Promise<Uint8Array> {
+  const session = await NativeStorage.beginRead({ path });
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const part = await NativeStorage.readChunk({ token: session.token });
+      if (part.data) {
+        const bytes = base64ToBytes(part.data);
+        chunks.push(bytes);
+        total += bytes.length;
+      }
+      if (part.done) break;
+    }
+    await NativeStorage.finishRead({ token: session.token });
+  } catch (error) {
+    await NativeStorage.abortRead({ token: session.token }).catch(() => {});
+    throw error;
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
 }
 
 function fromBase64(data: string, name: string, type: string, lastModified = Date.now()) {
@@ -183,18 +234,14 @@ async function persistSafTracks(tracks: Track[], status: StorageStatus) {
     const audioPath = "audio/" + hashId(track.id) + ".b64";
     const old = oldById.get(track.id);
     if (!old || old.size !== track.file.size || old.lastModified !== track.file.lastModified || old.audioPath !== audioPath) {
-      await NativeStorage.writeFile({
-        path: audioPath, data: await blobToBase64(track.file), mimeType: "application/octet-stream",
-      });
+      await writeSafBlob(audioPath, track.file);
     }
 
     let sidecarPath: string | undefined;
     if (track.sidecar) {
       sidecarPath = "lyrics/" + hashId(track.id) + ".b64";
       if (!old || old.sidecarPath !== sidecarPath) {
-        await NativeStorage.writeFile({
-          path: sidecarPath, data: await blobToBase64(track.sidecar), mimeType: "application/octet-stream",
-        });
+        await writeSafBlob(sidecarPath, track.sidecar);
       }
     }
     next.push(savedTrack(track, { audioPath, sidecarPath }));
@@ -230,19 +277,19 @@ async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
   for (const item of index) {
     try {
       if (!item.audioPath) continue;
-      const audio = await NativeStorage.readFile({ path: item.audioPath });
+      const audioBytes = await readSafBlob(item.audioPath);
       let sidecar: File | undefined;
       if (item.sidecarPath) {
         try {
-          const lyrics = await NativeStorage.readFile({ path: item.sidecarPath });
-          sidecar = fromBase64(lyrics.data, item.sidecarName || "lyrics.lrc", item.sidecarType || "text/plain", item.lastModified);
+          const lyrics = await readSafBlob(item.sidecarPath);
+          sidecar = new File([lyrics], item.sidecarName || "lyrics.lrc", { type: item.sidecarType || "text/plain", lastModified: item.lastModified });
         } catch (error) {
           console.warn("Sonora could not restore sidecar lyrics", item.sidecarName, error);
         }
       }
       restored.push({
         id: item.id,
-        file: fromBase64(audio.data, item.fileName, item.type, item.lastModified),
+        file: new File([audioBytes], item.fileName, { type: item.type || "application/octet-stream", lastModified: item.lastModified }),
         path: item.path,
         title: item.title,
         artist: item.artist,
