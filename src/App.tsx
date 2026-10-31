@@ -86,6 +86,7 @@ export default function App() {
       // Subscribe after restoring so the restored snapshot is not overwritten by defaults.
       unsubscribeSettings = settings.sub(schedulePersistentState);
       unsubscribeLyrics = lyricsStore.sub(schedulePersistentState);
+      schedulePersistentState();
     };
 
     void restore().catch((error) => console.error("Sonora restore failed", error));
