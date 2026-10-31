@@ -29,11 +29,13 @@ export function Pickers({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" className="outline-button" onClick={() => fileRef.current?.click()}>
-        <Icon n="plus" s={17} /> Add files
+        <Icon n="plus" s={17} /> Add music
       </button>
-      <button type="button" className="outline-button" onClick={openFolder}>
-        <Icon n="folder-open" s={17} /> {native ? "Select music" : "Open folder"}
-      </button>
+      {!native && (
+        <button type="button" className="outline-button" onClick={openFolder}>
+          <Icon n="folder-open" s={17} /> Open folder
+        </button>
+      )}
       {saved && (
         <button
           type="button"
@@ -97,15 +99,11 @@ export default function Library({
   return (
     <div className="main-content inner-content">
       <div className="section-kicker">
-        <span /> YOUR COLLECTION
+        <span /> LIBRARY
       </div>
-      <h1>
-        All your <em>music.</em>
-      </h1>
+      <h1>Library</h1>
       <p className="subtitle">
-        Everything you love, all in one place. Files never leave your device
-        {folder ? ` · ${tracks.length} tracks in ${folder}` : ""}
-        {loading ? " · scanning…" : "."}
+        {tracks.length} {tracks.length === 1 ? "track" : "tracks"}{loading ? " · Loading…" : ""}
       </p>
 
       <div className="library-tools">
