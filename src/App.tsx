@@ -303,7 +303,7 @@ export default function App() {
 
         <Suspense fallback={<div className="main-content inner-content text-sm text-muted">Loading studio…</div>}>
           {view === "room" && (
-            <Home onNavigate={navigate} onOpenVisual={() => navigate("visual")} />
+            <Home onNavigate={navigate} />
           )}
           {view === "library" && <Library dirRef={folderRef} fileRef={filesRef} />}
           {view === "lyrics" && <LyricsPage />}
