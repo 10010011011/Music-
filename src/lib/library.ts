@@ -187,9 +187,12 @@ export const savedFolder = () => kvGet<FileSystemDirectoryHandle>("dirHandle");
 
 /* ---------------- Lyrics resolution ---------------- */
 export async function loadLyricsFor(t: Track) {
-  if (lyricsStore.get().map[t.id]) return;
+  const inMemory: Lyrics | undefined = lyricsStore.get().map[t.id];
+  const hasWordTiming = (lyrics?: Lyrics) =>
+    Boolean(lyrics?.lines.some(line => line.words && line.words.length > 0));
+  if (hasWordTiming(inMemory)) return;
 
-  let cached: Lyrics | undefined = await kvGet<Lyrics>("lyr:" + t.id);
+  const cached: Lyrics | undefined = await kvGet<Lyrics>("lyr:" + t.id);
   const sidecarLyrics = t.sidecar
     ? parseLyrics(await t.sidecar.text(), t.sidecar.name)
     : undefined;
@@ -200,21 +203,27 @@ export async function loadLyricsFor(t: Track) {
     ? parseLyrics((t as any).demoLyrics, "bundled")
     : undefined;
 
-  // Older Sonora builds discarded enhanced-LRC word timestamps. Upgrade that
-  // cache from the original imported sidecar rather than leaving the user with
-  // line-only lyrics after the parser has learned word-level timing.
-  const hasWordTiming = (lyrics?: Lyrics) =>
-    Boolean(lyrics?.lines.some(line => line.words && line.words.length > 0));
-  if (cached && !hasWordTiming(cached)) {
-    if (hasWordTiming(sidecarLyrics)) cached = sidecarLyrics;
-    else if (hasWordTiming(embeddedLyrics)) cached = embeddedLyrics;
-  }
+  // Older Sonora builds discarded enhanced-LRC word timestamps. Upgrade both
+  // the IndexedDB cache and an already-restored in-memory lyrics snapshot from
+  // the original source file when that source contains real word-level timing.
+  const richerSource = hasWordTiming(sidecarLyrics)
+    ? sidecarLyrics
+    : hasWordTiming(embeddedLyrics)
+      ? embeddedLyrics
+      : undefined;
+  const needsUpgrade = Boolean(
+    richerSource && !hasWordTiming(inMemory) && !hasWordTiming(cached)
+  );
 
-  const lyrics = cached || sidecarLyrics || embeddedLyrics || bundledLyrics;
+  const lyrics = needsUpgrade
+    ? richerSource
+    : inMemory || cached || sidecarLyrics || embeddedLyrics || bundledLyrics;
   if (lyrics) {
-    lyricsStore.set(state => ({ map: { ...state.map, [t.id]: lyrics } }));
+    if (lyrics !== inMemory) {
+      lyricsStore.set(state => ({ map: { ...state.map, [t.id]: lyrics } }));
+    }
     // Persist parser upgrades so subsequent opens don't need to reparse the file.
-    if (lyrics === sidecarLyrics || lyrics === embeddedLyrics) {
+    if (needsUpgrade || (!cached && (lyrics === sidecarLyrics || lyrics === embeddedLyrics))) {
       void kvSet("lyr:" + t.id, lyrics);
     }
   }
