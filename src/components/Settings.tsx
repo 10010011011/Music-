@@ -54,7 +54,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="modal-scroll">
           {/* Appearance & Special Vocaloid Themes */}
           <div className="settings-group">
-            <h3>Appearance &amp; Character Editions</h3>
+            <h3>Appearance</h3>
             <div className="theme-grid">
               {THEMES.map((t) => {
                 const chosen = s.theme === t.id;
