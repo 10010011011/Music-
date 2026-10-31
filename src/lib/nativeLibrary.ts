@@ -90,7 +90,7 @@ function base64ToText(value: string) {
   return new TextDecoder().decode(base64ToBytes(value));
 }
 
-async function writeSafBlob(path: string, file: Blob, mimeType = "application/octet-stream") {
+async async function writeSafBlob(path: string, file: Blob, mimeType = "application/octet-stream") {
   const session = await NativeStorage.beginWrite({ path, mimeType });
   try {
     const chunkSize = 256 * 1024;
