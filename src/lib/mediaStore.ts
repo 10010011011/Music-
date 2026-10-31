@@ -72,7 +72,7 @@ function openDatabase(): Promise<IDBDatabase> {
 
 function coverBlobFromTrack(track: Track): Blob | undefined {
   const value = track.coverData || track.cover || "";
-  const match = value.match(/^data:([^;,]+)?;base64,([\\s\\S]*)$/);
+  const match = value.match(/^data:([^;,]+)?;base64,([\s\S]*)$/);
   if (!match) return undefined;
   const binary = atob(match[2]);
   const bytes = new Uint8Array(binary.length);
