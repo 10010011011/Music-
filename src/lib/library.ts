@@ -76,7 +76,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 let tagRun = 0;
-async function loadTagsInBackground() {
+export async function loadTagsInBackground() {
   const run = ++tagRun;
   const list = library.get().tracks;
   let dirty = 0;
