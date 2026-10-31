@@ -12,11 +12,12 @@ import Home from "./components/Home";
 import Library from "./components/Library";
 import Sound from "./components/Sound";
 import SettingsModal from "./components/Settings";
+import NowPlaying from "./components/NowPlaying";
 
 const LyricsPage = lazy(() => import("./components/Lyrics"));
 const VisualPage = lazy(() => import("./components/Visual"));
 
-export type View = "room" | "library" | "lyrics" | "sound" | "visual";
+export type View = "room" | "library" | "lyrics" | "sound" | "visual" | "player";
 
 function useTheme() {
   const theme = useStore(settings, (s) => s.theme);
@@ -130,7 +131,9 @@ export default function App() {
           ? "Lyrics studio"
           : view === "visual"
             ? "Visual analyzer"
-            : "Sound lab";
+            : view === "player"
+              ? "Now playing"
+              : "Sound lab";
 
   return (
     <div className="app-shell">
@@ -167,7 +170,7 @@ export default function App() {
           <nav className="side-nav" aria-label="Primary">
             <button
               type="button"
-              className={view === "room" ? "active" : ""}
+              className={view === "room" || view === "player" ? "active" : ""}
               onClick={() => navigate("room")}
             >
               <Icon n="home" s={19} /> Home
@@ -302,9 +305,8 @@ export default function App() {
         </header>
 
         <Suspense fallback={<div className="main-content inner-content text-sm text-muted">Loading studio…</div>}>
-          {view === "room" && (
-            <Home onNavigate={navigate} />
-          )}
+          {view === "room" && <Home onNavigate={navigate} />}
+          {view === "player" && <NowPlaying onNavigate={navigate} />}
           {view === "library" && <Library dirRef={folderRef} fileRef={filesRef} />}
           {view === "lyrics" && <LyricsPage />}
           {view === "sound" && <Sound onOpenVisual={() => navigate("visual")} />}
@@ -316,7 +318,9 @@ export default function App() {
       <RightLyricsPanel onOpenStudio={() => navigate("lyrics")} />
 
       {/* Persistent Bottom Player Bar */}
-      <PlayerBar onOpenSettings={() => setSettingsOpen(true)} onNavigate={navigate} />
+      {view !== "player" && (
+        <PlayerBar onOpenSettings={() => setSettingsOpen(true)} onNavigate={navigate} />
+      )}
 
       {/* Preferences Modal */}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
