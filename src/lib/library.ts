@@ -223,7 +223,9 @@ export async function loadLyricsFor(t: Track) {
 
   const lyrics = needsUpgrade
     ? richerSource
-    : inMemory || cached || sidecarLyrics || embeddedLyrics || bundledLyrics;
+    : hasWordTiming(cached)
+      ? cached
+      : inMemory || cached || sidecarLyrics || embeddedLyrics || bundledLyrics;
   if (lyrics) {
     if (lyrics !== inMemory) {
       lyricsStore.set(state => ({ map: { ...state.map, [t.id]: lyrics } }));
