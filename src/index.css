@@ -3059,3 +3059,11 @@ input[type="range"].vslider::-webkit-slider-thumb {
     align-items: center;
   }
 }
+
+@media (max-width: 700px) {
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+}
