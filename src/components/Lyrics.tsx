@@ -89,7 +89,16 @@ export default function LyricsPage() {
       const stamped = stampNowTime();
       const updated: Lyrics = {
         ...lyr,
-        lines: lyr.lines.map((line, j) => (j === index ? { ...line, t: stamped } : line)),
+        lines: lyr.lines.map((line, j) => {
+          if (j !== index) return line;
+          const previous = line.t ?? line.words?.[0]?.t ?? null;
+          const delta = previous == null ? 0 : stamped - previous;
+          return {
+            ...line,
+            t: stamped,
+            words: line.words?.map(word => ({ ...word, t: Math.max(0, word.t + delta) })),
+          };
+        }),
       };
       saveLyrics(track.id, updated);
       const nextIdx = Math.min(lyr.lines.length, index + 1);
@@ -108,7 +117,7 @@ export default function LyricsPage() {
     const prevIdx = tapNext - 1;
     saveLyrics(track.id, {
       ...lyr,
-      lines: lyr.lines.map((line, j) => (j === prevIdx ? { ...line, t: null } : line)),
+      lines: lyr.lines.map((line, j) => (j === prevIdx ? { ...line, t: null, words: undefined } : line)),
     });
     setTapNext(prevIdx);
   }, [track, lyr, tapNext]);
@@ -305,7 +314,7 @@ export default function LyricsPage() {
                       lyr &&
                       saveLyrics(track.id, {
                         ...lyr,
-                        lines: lines.map((line, j) => (i === j ? { ...line, text: e.target.value } : line)),
+                        lines: lines.map((line, j) => (i === j ? { ...line, text: e.target.value, words: undefined } : line)),
                       })
                     }
                   />
@@ -322,7 +331,18 @@ export default function LyricsPage() {
                       if (n !== null || !e.target.value.trim()) {
                         saveLyrics(track.id, {
                           ...lyr,
-                          lines: lines.map((line, j) => (i === j ? { ...line, t: n } : line)),
+                          lines: lines.map((line, j) => {
+                            if (j !== i) return line;
+                            const previous = line.t ?? line.words?.[0]?.t ?? null;
+                            const delta = n == null || previous == null ? 0 : n - previous;
+                            return {
+                              ...line,
+                              t: n,
+                              words: n == null
+                                ? undefined
+                                : line.words?.map(word => ({ ...word, t: Math.max(0, word.t + delta) })),
+                            };
+                          }),
                         });
                       } else {
                         e.target.value = l.t === null ? "" : stamp(l.t);
