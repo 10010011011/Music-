@@ -188,11 +188,36 @@ export const savedFolder = () => kvGet<FileSystemDirectoryHandle>("dirHandle");
 /* ---------------- Lyrics resolution ---------------- */
 export async function loadLyricsFor(t: Track) {
   if (lyricsStore.get().map[t.id]) return;
-  let l: Lyrics | undefined = await kvGet<Lyrics>("lyr:" + t.id);
-  if (!l && t.sidecar) l = parseLyrics(await t.sidecar.text(), t.sidecar.name);
-  if (!l && t.embeddedLyrics) l = parseLyrics(t.embeddedLyrics, "embedded tag");
-  if (!l && (t as any).demoLyrics) l = parseLyrics((t as any).demoLyrics, "bundled");
-  if (l) lyricsStore.set((s) => ({ map: { ...s.map, [t.id]: l! } }));
+
+  let cached: Lyrics | undefined = await kvGet<Lyrics>("lyr:" + t.id);
+  const sidecarLyrics = t.sidecar
+    ? parseLyrics(await t.sidecar.text(), t.sidecar.name)
+    : undefined;
+  const embeddedLyrics = t.embeddedLyrics
+    ? parseLyrics(t.embeddedLyrics, "embedded tag")
+    : undefined;
+  const bundledLyrics = (t as any).demoLyrics
+    ? parseLyrics((t as any).demoLyrics, "bundled")
+    : undefined;
+
+  // Older Sonora builds discarded enhanced-LRC word timestamps. Upgrade that
+  // cache from the original imported sidecar rather than leaving the user with
+  // line-only lyrics after the parser has learned word-level timing.
+  const hasWordTiming = (lyrics?: Lyrics) =>
+    Boolean(lyrics?.lines.some(line => line.words && line.words.length > 0));
+  if (cached && !hasWordTiming(cached)) {
+    if (hasWordTiming(sidecarLyrics)) cached = sidecarLyrics;
+    else if (hasWordTiming(embeddedLyrics)) cached = embeddedLyrics;
+  }
+
+  const lyrics = cached || sidecarLyrics || embeddedLyrics || bundledLyrics;
+  if (lyrics) {
+    lyricsStore.set(state => ({ map: { ...state.map, [t.id]: lyrics } }));
+    // Persist parser upgrades so subsequent opens don't need to reparse the file.
+    if (lyrics === sidecarLyrics || lyrics === embeddedLyrics) {
+      void kvSet("lyr:" + t.id, lyrics);
+    }
+  }
 }
 
 let saveT: number | undefined;
