@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useStore, clock, settings, library, toast, fmt, type Lyrics } from "../lib/store";
-import { persistNativeTracks } from "../lib/mediaStore";
+import { kvSet } from "../lib/db";
 import { saveLyrics } from "../lib/library";
 import { parseLyrics, toLRC, activeIndex, bakeOffset, shiftFrom, stamp, parseCueTime } from "../lib/lyrics";
 import { engine } from "../lib/engine";
@@ -73,16 +73,9 @@ export default function LyricsPage() {
       const parsed = parseLyrics(text, file.name);
       saveLyrics(track.id, parsed);
 
-      // Keep the original LRC alongside the track as well as the parsed data.
-      // This lets newer parsers recover enhanced word timestamps from older
-      // saved line-only lyric snapshots after an app update.
-      const tracks = library.get().tracks.map(item =>
-        item.id === track.id ? { ...item, sidecar: file } : item
-      );
-      library.set({ tracks });
-      void persistNativeTracks(tracks).catch(error =>
-        console.error("Sonora could not save the imported lyrics file", error)
-      );
+      // Retain the original source text as well as the parsed representation.
+      // Future parser upgrades can then recover word-level timing information.
+      void kvSet("lyr:source:" + track.id, { text, name: file.name });
 
       setTapNext(0);
       setMode(parsed.lines.some((l) => l.t === null) ? "tap" : "preview");
