@@ -6,7 +6,7 @@ import { Icon, Cover } from "./ui";
 export default function Home({
   onNavigate,
 }: {
-  onNavigate: (v: "room" | "library" | "lyrics" | "sound") => void;
+  onNavigate: (v: "room" | "library" | "lyrics" | "sound" | "player") => void;
 }) {
   const track = useCurrent();
   const playing = useStore(player, (s) => s.playing);
@@ -25,6 +25,11 @@ export default function Home({
       <section className="home-now-playing">
         <div className="section-head">
           <h2>Now playing</h2>
+          {track && (
+            <button type="button" className="text-action" onClick={() => onNavigate("player")}>
+              Open player <Icon n="right" s={16} />
+            </button>
+          )}
         </div>
         {track ? (
           <div className="feature-track" data-theme-card="true">
