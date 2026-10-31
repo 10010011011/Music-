@@ -4,7 +4,7 @@ import { useStore, settings, player, toast, library, lyricsStore, type ThemeName
 import { devices, requestDeviceNames } from "../lib/devices";
 import { Icon } from "./ui";
 import { Calibrate } from "./SharedAudioViews";
-import { choosePersistentLibraryFolder, getPersistentStorageStatus, persistNativeAppState, persistNativeTracks, type StorageStatus } from "../lib/nativeLibrary";
+import { choosePersistentLibraryFolder, getPersistentStorageStatus, persistNativeAppState, persistNativeTracks, restoreNativeAppState, restoreNativeTracks, type StorageStatus } from "../lib/nativeLibrary";
 
 export const THEMES: {
   id: ThemeName;
@@ -43,10 +43,40 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       const status = await choosePersistentLibraryFolder();
       setStorageStatus(status);
       try {
+        const [folderTracks, folderState] = await Promise.all([
+          restoreNativeTracks(),
+          restoreNativeAppState(),
+        ]);
+
+        if (folderState?.settings && !localStorage.getItem("sonora.settings.v1")) {
+          settings.set(folderState.settings);
+        }
+        if (folderState?.lyrics) {
+          lyricsStore.set({ map: { ...folderState.lyrics, ...lyricsStore.get().map } });
+        }
+
         const state = library.get();
-        const queueIds = state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id));
-        const currentTrackId = state.tracks[state.queue[state.qpos]]?.id ?? null;
-        await persistNativeTracks(state.tracks);
+        const merged = new Map(folderTracks.map((track) => [track.id, track]));
+        for (const track of state.tracks) merged.set(track.id, track);
+        const tracks = Array.from(merged.values());
+        const indexById = new Map(tracks.map((track, index) => [track.id, index]));
+        const savedQueueIds = [
+          ...(folderState?.queueIds || []),
+          ...state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id)),
+        ];
+        const queueIds = [...new Set(savedQueueIds)];
+        const queueOrder = queueIds
+          .map((id) => indexById.get(id))
+          .filter((index): index is number => index !== undefined);
+        const used = new Set(queueOrder);
+        const queue = [...queueOrder, ...tracks.map((_, index) => index).filter((index) => !used.has(index))];
+        const currentTrackId =
+          state.tracks[state.queue[state.qpos]]?.id || folderState?.currentTrackId || null;
+        const currentIndex = currentTrackId ? indexById.get(currentTrackId) : undefined;
+        const qpos = currentIndex === undefined ? 0 : Math.max(0, queue.indexOf(currentIndex));
+
+        library.set({ tracks, queue, qpos, folderName: "Sonora Library" });
+        await persistNativeTracks(tracks);
         await persistNativeAppState(settings.get(), lyricsStore.get().map, { queueIds, currentTrackId });
         toast("Sonora Library folder is ready");
       } catch (error) {
