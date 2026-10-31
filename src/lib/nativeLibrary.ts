@@ -78,6 +78,12 @@ function base64ToBytes(data: string) {
   return bytes;
 }
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   const chunk = 0x8000;
@@ -99,7 +105,7 @@ function dataUrlToBlob(value?: string): Blob | undefined {
   if (!value) return undefined;
   const match = value.match(/^data:([^;,]+)?;base64,([\\s\\S]*)$/);
   if (!match) return undefined;
-  return new Blob([base64ToBytes(match[2])], { type: match[1] || "image/jpeg" });
+  return new Blob([bytesToArrayBuffer(base64ToBytes(match[2]))], { type: match[1] || "image/jpeg" });
 }
 
 function blobToDataUrl(bytes: Uint8Array, type: string) {
@@ -150,7 +156,7 @@ async function readSafBlob(path: string): Promise<Uint8Array> {
 }
 
 function fromBase64(data: string, name: string, type: string, lastModified = Date.now()) {
-  return new File([base64ToBytes(data)], name, {
+  return new File([bytesToArrayBuffer(base64ToBytes(data))], name, {
     type: type || "application/octet-stream",
     lastModified,
   });
@@ -343,7 +349,7 @@ async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
       if (item.sidecarPath) {
         try {
           const lyrics = await readSafBlob(item.sidecarPath);
-          sidecar = new File([lyrics], item.sidecarName || "lyrics.lrc", { type: item.sidecarType || "text/plain", lastModified: item.lastModified });
+          sidecar = new File([bytesToArrayBuffer(lyrics)], item.sidecarName || "lyrics.lrc", { type: item.sidecarType || "text/plain", lastModified: item.lastModified });
         } catch (error) {
           console.warn("Sonora could not restore sidecar lyrics", item.sidecarName, error);
         }
@@ -358,7 +364,7 @@ async function restoreSafTracks(status: StorageStatus): Promise<Track[]> {
       }
       restored.push({
         id: item.id,
-        file: new File([audioBytes], item.fileName, { type: item.type || "application/octet-stream", lastModified: item.lastModified }),
+        file: new File([bytesToArrayBuffer(audioBytes)], item.fileName, { type: item.type || "application/octet-stream", lastModified: item.lastModified }),
         path: item.path,
         title: item.title,
         artist: item.artist,
