@@ -1,5 +1,16 @@
-import assert from "node:assert/strict";
 import { activeIndex, activeWordIndex, bakeOffset, parseLyrics, shiftFrom, toLRC } from "../src/lib/lyrics";
+
+function assert(condition: unknown, label: string): asserts condition {
+  if (!condition) throw new Error("FAIL: " + label);
+}
+
+function equal<T>(actual: T, expected: T, label: string) {
+  assert(actual === expected, label + ": expected " + String(expected) + ", received " + String(actual));
+}
+
+function deepEqual(actual: unknown, expected: unknown, label: string) {
+  assert(JSON.stringify(actual) === JSON.stringify(expected), label + ": values differ");
+}
 
 function close(actual: number, expected: number, label: string) {
   assert.ok(Math.abs(actual - expected) < 0.001, label + ": expected " + expected + ", received " + actual);
@@ -7,7 +18,7 @@ function close(actual: number, expected: number, label: string) {
 
 // Ordinary LRC remains line-synchronised and keeps its original text.
 const plain = parseLyrics("[00:12.00]Hello world\n[00:15.25]Next line", "plain.lrc");
-assert.equal(plain.lines.length, 2);
+equal(plain.lines.length, 2);
 assert.equal(plain.lines[0].text, "Hello world");
 close(plain.lines[0].t!, 12, "plain line timestamp");
 assert.equal(plain.lines[0].words, undefined);
@@ -17,7 +28,7 @@ assert.equal(activeIndex(plain, 13), 0);
 const enhancedText = "[00:12.00]<00:12.00>Hello <00:12.40>world";
 const enhanced = parseLyrics(enhancedText, "enhanced.lrc");
 assert.equal(enhanced.lines[0].text, "Hello world");
-assert.deepEqual(enhanced.lines[0].words?.map(word => word.text), ["Hello ", "world"]);
+deepEqual(enhanced.lines[0].words?.map(word => word.text), ["Hello ", "world"]);
 close(enhanced.lines[0].words![0].t, 12, "first word timestamp");
 close(enhanced.lines[0].words![1].t, 12.4, "second word timestamp");
 assert.equal(activeWordIndex(enhanced.lines[0], 12.2), 0);
