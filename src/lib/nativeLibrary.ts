@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import type { Lyrics, Settings, Track } from "./store";
+import { kvGet, kvSet } from "./db";
 
 export interface StorageStatus {
   configured: boolean;
@@ -512,6 +513,7 @@ export async function persistNativeAppState(
 ) {
   if (!Capacitor.isNativePlatform()) return;
   const data = JSON.stringify({ version: 1, settings, lyrics, ...playback });
+  await kvSet("native-app-state", JSON.parse(data) as PersistedAppState);
   const job = appStatePersistenceQueue.then(async () => {
     const status = await getPersistentStorageStatus();
     try {
@@ -540,6 +542,8 @@ export async function persistNativeAppState(
 
 export async function restoreNativeAppState(): Promise<PersistedAppState | null> {
   if (!Capacitor.isNativePlatform()) return null;
+  const localState = await kvGet<PersistedAppState>("native-app-state");
+  if (localState) return localState;
   const status = await getPersistentStorageStatus();
   if (status.configured) {
     try {
