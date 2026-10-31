@@ -42,6 +42,8 @@ type SavedTrack = {
 export interface PersistedAppState {
   settings?: Partial<Settings>;
   lyrics?: Record<string, Lyrics>;
+  queueIds?: string[];
+  currentTrackId?: string | null;
 }
 
 let activeLibraryUri = "";
@@ -451,9 +453,13 @@ export async function restoreNativeTracks(): Promise<Track[]> {
   return restorePrivateTracks();
 }
 
-export async function persistNativeAppState(settings: Partial<Settings>, lyrics: Record<string, Lyrics>) {
+export async function persistNativeAppState(
+  settings: Partial<Settings>,
+  lyrics: Record<string, Lyrics>,
+  playback?: { queueIds?: string[]; currentTrackId?: string | null },
+) {
   if (!Capacitor.isNativePlatform()) return;
-  const data = JSON.stringify({ version: 1, settings, lyrics });
+  const data = JSON.stringify({ version: 1, settings, lyrics, ...playback });
   const status = await getPersistentStorageStatus();
   try {
     if (status.configured) {
