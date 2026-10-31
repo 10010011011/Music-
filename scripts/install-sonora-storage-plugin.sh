@@ -29,6 +29,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @CapacitorPlugin(name = "SonoraStorage")
 public class SonoraStoragePlugin extends Plugin {
@@ -36,6 +39,18 @@ public class SonoraStoragePlugin extends Plugin {
     private static final String TREE_URI = "tree_uri";
     private static final String ROOT_NAME = "root_name";
     private static final String LIBRARY_NAME = "Sonora Library";
+
+    private static class WriteHandle {
+        final DocumentFile file;
+        final OutputStream stream;
+        WriteHandle(DocumentFile file, OutputStream stream) { this.file = file; this.stream = stream; }
+    }
+    private static class ReadHandle {
+        final InputStream stream;
+        ReadHandle(InputStream stream) { this.stream = stream; }
+    }
+    private final Map<String, WriteHandle> activeWrites = new ConcurrentHashMap<>();
+    private final Map<String, ReadHandle> activeReads = new ConcurrentHashMap<>();
 
     @PluginMethod
     public void chooseFolder(PluginCall call) {
@@ -233,6 +248,135 @@ public class SonoraStoragePlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Could not save " + path + ": " + e.getMessage(), "STORAGE_WRITE_FAILED", e);
         }
+    }
+
+    @PluginMethod
+    public void beginWrite(PluginCall call) {
+        String path = call.getString("path");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        if (path == null) { call.reject("A library file path is required"); return; }
+        try {
+            DocumentFile existing = findFile(path, true);
+            if (existing != null && existing.exists() && !existing.delete()) {
+                call.reject("Could not replace the existing library file");
+                return;
+            }
+            String[] parts = safeSegments(path);
+            DocumentFile parent = getLibraryFolder(true);
+            for (int i = 0; i < parts.length - 1; i++) {
+                DocumentFile next = parent.findFile(parts[i]);
+                if (next == null) next = parent.createDirectory(parts[i]);
+                if (next == null || !next.isDirectory()) throw new IllegalStateException("Could not create library folder");
+                parent = next;
+            }
+            DocumentFile target = parent.createFile(mimeType, parts[parts.length - 1]);
+            if (target == null) throw new IllegalStateException("Could not create library file");
+            OutputStream output = getContext().getContentResolver().openOutputStream(target.getUri(), "w");
+            if (output == null) throw new IllegalStateException("Could not open library file");
+            String token = UUID.randomUUID().toString();
+            activeWrites.put(token, new WriteHandle(target, output));
+            call.resolve(new JSObject().put("token", token));
+        } catch (Exception e) {
+            call.reject("Could not begin saving " + path + ": " + e.getMessage(), "STORAGE_WRITE_FAILED", e);
+        }
+    }
+
+    @PluginMethod
+    public void appendWrite(PluginCall call) {
+        String token = call.getString("token");
+        String data = call.getString("data");
+        WriteHandle handle = token == null ? null : activeWrites.get(token);
+        if (handle == null || data == null) { call.reject("Invalid write session"); return; }
+        try {
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+            handle.stream.write(bytes);
+            call.resolve(new JSObject().put("bytes", bytes.length));
+        } catch (Exception e) {
+            call.reject("Could not write audio chunk: " + e.getMessage(), "STORAGE_WRITE_FAILED", e);
+        }
+    }
+
+    @PluginMethod
+    public void finishWrite(PluginCall call) {
+        String token = call.getString("token");
+        WriteHandle handle = token == null ? null : activeWrites.remove(token);
+        if (handle == null) { call.reject("Invalid write session"); return; }
+        try {
+            handle.stream.flush();
+            handle.stream.close();
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not finish writing library file: " + e.getMessage(), "STORAGE_WRITE_FAILED", e);
+        }
+    }
+
+    @PluginMethod
+    public void abortWrite(PluginCall call) {
+        String token = call.getString("token");
+        WriteHandle handle = token == null ? null : activeWrites.remove(token);
+        if (handle != null) {
+            try { handle.stream.close(); } catch (Exception ignored) {}
+            try { handle.file.delete(); } catch (Exception ignored) {}
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void beginRead(PluginCall call) {
+        String path = call.getString("path");
+        if (path == null) { call.reject("A library file path is required"); return; }
+        try {
+            DocumentFile file = findFile(path, false);
+            if (file == null || !file.isFile()) { call.reject("Library file not found: " + path, "FILE_NOT_FOUND"); return; }
+            InputStream input = getContext().getContentResolver().openInputStream(file.getUri());
+            if (input == null) throw new IllegalStateException("Could not open library file");
+            String token = UUID.randomUUID().toString();
+            activeReads.put(token, new ReadHandle(input));
+            call.resolve(new JSObject().put("token", token).put("size", file.length()));
+        } catch (Exception e) {
+            call.reject("Could not begin reading " + path + ": " + e.getMessage(), "STORAGE_READ_FAILED", e);
+        }
+    }
+
+    @PluginMethod
+    public void readChunk(PluginCall call) {
+        String token = call.getString("token");
+        ReadHandle handle = token == null ? null : activeReads.get(token);
+        if (handle == null) { call.reject("Invalid read session"); return; }
+        try {
+            byte[] buffer = new byte[256 * 1024];
+            int count = handle.stream.read(buffer);
+            if (count < 0) {
+                call.resolve(new JSObject().put("data", "").put("done", true));
+            } else {
+                byte[] chunk = count == buffer.length ? buffer : java.util.Arrays.copyOf(buffer, count);
+                call.resolve(new JSObject()
+                    .put("data", Base64.encodeToString(chunk, Base64.NO_WRAP))
+                    .put("done", false));
+            }
+        } catch (Exception e) {
+            call.reject("Could not read library chunk: " + e.getMessage(), "STORAGE_READ_FAILED", e);
+        }
+    }
+
+    @PluginMethod
+    public void finishRead(PluginCall call) {
+        String token = call.getString("token");
+        ReadHandle handle = token == null ? null : activeReads.remove(token);
+        if (handle != null) {
+            try { handle.stream.close(); } catch (Exception ignored) {}
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void abortRead(PluginCall call) {
+        String token = call.getString("token");
+        ReadHandle handle = token == null ? null : activeReads.remove(token);
+        if (handle != null) {
+            try { handle.stream.close(); } catch (Exception ignored) {}
+        }
+        call.resolve();
     }
 
     @PluginMethod
