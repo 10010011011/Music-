@@ -122,14 +122,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="modal-scroll">
           {Capacitor.isNativePlatform() && (
             <div className="settings-group">
-              <h3>Music storage</h3>
+              <h3>Library backup</h3>
               <div className="setting-line">
                 <div>
                   <b>{storageStatus.configured ? "Folder connected" : "Choose a library folder"}</b>
                   <span>
                     {storageStatus.configured
-                      ? "Music, artwork, lyrics and settings are saved in " + storageStatus.folderName + "."
-                      : "Grant Sonora access once so your music and library data remain available after closing the app."}
+                      ? "Your library is stored on this device, with a second copy in " + storageStatus.folderName + "."
+                      : "Your music is saved automatically on this device. Choose a folder only if you also want a browsable backup copy."}
                   </span>
                 </div>
                 <button
@@ -138,11 +138,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   onClick={chooseStorage}
                   disabled={choosingStorage}
                 >
-                  {choosingStorage ? "Opening…" : storageStatus.configured ? "Change folder" : "Grant access"}
+                  {choosingStorage ? "Opening…" : storageStatus.configured ? "Change folder" : "Add backup folder"}
                 </button>
               </div>
               <p className="modal-note">
-                Select a parent folder such as Music. Sonora creates its own “Sonora Library” folder inside it.
+                Select a parent folder such as Music. Sonora creates a “Sonora Library” backup folder inside it.
               </p>
             </div>
           )}
