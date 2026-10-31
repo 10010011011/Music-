@@ -61,8 +61,9 @@ export function LyricsScroller({
     if (!container || active < 0 || Date.now() - userScrolledAt.current < 3200) return;
     const line = container.querySelector<HTMLElement>('[data-line="' + active + '"]');
     if (!line) return;
+    const lineTop = line.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
     container.scrollTo({
-      top: line.offsetTop - container.clientHeight / 2 + line.clientHeight / 2,
+      top: lineTop - container.clientHeight / 2 + line.clientHeight / 2,
       behavior: "smooth",
     });
   }, [active, track?.id, lyrics?.lines.length]);
