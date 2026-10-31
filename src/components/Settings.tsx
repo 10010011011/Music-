@@ -4,7 +4,8 @@ import { useStore, settings, player, toast, library, lyricsStore, type ThemeName
 import { devices, requestDeviceNames } from "../lib/devices";
 import { Icon } from "./ui";
 import { Calibrate } from "./SharedAudioViews";
-import { choosePersistentLibraryFolder, getPersistentStorageStatus, persistNativeAppState, persistNativeTracks, restoreNativeAppState, restoreNativeTracks, type StorageStatus } from "../lib/nativeLibrary";
+import { choosePersistentLibraryFolder, getPersistentStorageStatus, persistNativeAppState, restoreNativeAppState, type StorageStatus } from "../lib/nativeLibrary";
+import { persistNativeTracks, restoreNativeTracks } from "../lib/mediaStore";
 
 export const THEMES: {
   id: ThemeName;
