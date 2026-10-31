@@ -267,48 +267,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          {/* Mobile & GitHub APK Packaging */}
-          <div className="settings-group">
-            <h3>Android APK &amp; Flat GitHub Package</h3>
-            <div className="setting-line">
-              <div>
-                <b>Flat GitHub Zip (Mobile-Ready)</b>
-                <span>
-                  All source files flattened into root with rewritten relative imports — extract &amp; upload directly
-                  from mobile GitHub without creating subfolders.
-                </span>
-              </div>
-              <a
-                href="./sonora-github-flat.zip"
-                download="sonora-github-flat.zip"
-                className="accent-button h-8 px-3 text-xs"
-                onClick={() => toast("Downloading flat GitHub zip…")}
-              >
-                <Icon n="download" s={14} /> Flat Zip
-              </a>
-            </div>
-            <div className="setting-line">
-              <div>
-                <b>Android GitHub Workflow (.yml)</b>
-                <span>
-                  Separate <code>android.yml</code> file for <code>.github/workflows/android.yml</code> (SDK 35, Node
-                  22, Capacitor 7).
-                </span>
-              </div>
-              <a
-                href="./android.yml"
-                download="android.yml"
-                className="outline-button h-8 px-3 text-xs"
-                onClick={() => toast("Downloading android.yml workflow…")}
-              >
-                <Icon n="download" s={14} /> android.yml
-              </a>
-            </div>
-          </div>
-
           <p className="modal-note">
-            Settings, lyric edits, liked songs, and ReplayGain loudness analyses persist offline on your device. Push to
-            GitHub with <code>.github/workflows/android.yml</code> to compile an installable Android SDK 35 APK.
+            Your settings, liked songs, and imported music are saved on this device.
           </p>
         </div>
       </div>
