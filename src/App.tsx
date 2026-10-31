@@ -4,7 +4,8 @@ import { useStore, settings, player, library, lyricsStore, type Settings } from 
 import { engine } from "./lib/engine";
 import { initDevices } from "./lib/devices";
 import { ingest, openFolderHandle, loadTagsInBackground } from "./lib/library";
-import { restoreNativeTracks, restoreNativeAppState, persistNativeAppState } from "./lib/nativeLibrary";
+import { restoreNativeTracks } from "./lib/mediaStore";
+import { restoreNativeAppState, persistNativeAppState } from "./lib/nativeLibrary";
 import { PlayerBar } from "./components/Player";
 import { RightLyricsPanel } from "./components/SharedAudioViews";
 import { Icon } from "./components/ui";
