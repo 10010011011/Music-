@@ -13,6 +13,7 @@ interface SonoraStoragePlugin {
   getStatus(): Promise<StorageStatus>;
   writeFile(options: { path: string; data: string; mimeType?: string }): Promise<{ path: string; size: number }>;
   readFile(options: { path: string }): Promise<{ data: string }>;
+  deleteFile(options: { path: string }): Promise<{ deleted: boolean }>;
   beginWrite(options: { path: string; mimeType?: string }): Promise<{ token: string }>;
   appendWrite(options: { token: string; data: string }): Promise<{ bytes: number }>;
   finishWrite(options: { token: string }): Promise<void>;
@@ -250,6 +251,21 @@ async function persistPrivateTracks(tracks: Track[]) {
   });
 }
 
+async function cleanupPrivateLibrary() {
+  try {
+    const result = await Filesystem.readFile({ path: PRIVATE_INDEX, directory: Directory.Data });
+    if (typeof result.data !== "string") return;
+    const saved = JSON.parse(result.data) as SavedTrack[];
+    for (const item of saved) {
+      const audioPath = item.privatePath || "sonora-library/" + legacyName(item.id);
+      await Filesystem.deleteFile({ path: audioPath, directory: Directory.Data }).catch(() => {});
+      if (item.sidecarPath) await Filesystem.deleteFile({ path: item.sidecarPath, directory: Directory.Data }).catch(() => {});
+      if (item.privateCoverPath) await Filesystem.deleteFile({ path: item.privateCoverPath, directory: Directory.Data }).catch(() => {});
+    }
+    await Filesystem.deleteFile({ path: PRIVATE_INDEX, directory: Directory.Data }).catch(() => {});
+  } catch {}
+}
+
 async function persistSafTracks(tracks: Track[], status: StorageStatus) {
   const existing = await readSafIndex(status);
   const oldById = new Map(existing.map((item) => [item.id, item]));
@@ -302,6 +318,7 @@ export async function persistNativeTracks(tracks: Track[]) {
   }
   try {
     await persistSafTracks(tracks, status);
+    await cleanupPrivateLibrary();
   } catch (error) {
     console.error("Sonora could not save to the selected folder; keeping an app-private recovery copy", error);
     try {
@@ -443,6 +460,7 @@ export async function persistNativeAppState(settings: Partial<Settings>, lyrics:
       await NativeStorage.writeFile({
         path: "data/state.json", data: textToBase64(data), mimeType: "application/json",
       });
+      await Filesystem.deleteFile({ path: PRIVATE_STATE, directory: Directory.Data }).catch(() => {});
     } else {
       await Filesystem.mkdir({ path: "sonora-library", directory: Directory.Data, recursive: true }).catch(() => {});
       await Filesystem.writeFile({
@@ -450,7 +468,11 @@ export async function persistNativeAppState(settings: Partial<Settings>, lyrics:
       });
     }
   } catch (error) {
-    console.warn("Sonora could not persist settings and lyric edits", error);
+    console.warn("Sonora could not persist settings and lyric edits to the selected folder", error);
+    await Filesystem.mkdir({ path: "sonora-library", directory: Directory.Data, recursive: true }).catch(() => {});
+    await Filesystem.writeFile({
+      path: PRIVATE_STATE, data, directory: Directory.Data, recursive: true,
+    }).catch((fallbackError) => console.warn("Sonora private state backup failed", fallbackError));
   }
 }
 
