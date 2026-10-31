@@ -184,7 +184,7 @@ export default function App() {
   // Track whether lyrics UI is visible so engine can throttle seekbar/lyrics clock to 10Hz when hidden
   useEffect(() => {
     const checkVisibility = () => {
-      const panelShown = window.innerWidth > 1020 || view === "lyrics";
+      const panelShown = window.innerWidth > 1020 || view === "lyrics" || view === "player";
       if (player.get().lyricsVisible !== panelShown) {
         player.set({ lyricsVisible: panelShown });
       }
