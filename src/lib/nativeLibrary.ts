@@ -162,7 +162,16 @@ function fromBase64(data: string, name: string, type: string, lastModified = Dat
   });
 }
 
-function savedTrack(track: Track, paths: { audioPath?: string; privatePath?: string; sidecarPath?: string }): SavedTrack {
+function savedTrack(
+  track: Track,
+  paths: {
+    audioPath?: string;
+    privatePath?: string;
+    sidecarPath?: string;
+    coverPath?: string;
+    privateCoverPath?: string;
+  },
+): SavedTrack {
   return {
     id: track.id,
     fileName: track.file.name,
