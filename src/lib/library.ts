@@ -193,6 +193,10 @@ export async function loadLyricsFor(t: Track) {
   if (hasWordTiming(inMemory)) return;
 
   const cached: Lyrics | undefined = await kvGet<Lyrics>("lyr:" + t.id);
+  const savedSource = await kvGet<{ text: string; name?: string }>("lyr:source:" + t.id);
+  const savedSourceLyrics = savedSource?.text
+    ? parseLyrics(savedSource.text, savedSource.name || "saved lyric source")
+    : undefined;
   const sidecarLyrics = t.sidecar
     ? parseLyrics(await t.sidecar.text(), t.sidecar.name)
     : undefined;
@@ -204,13 +208,15 @@ export async function loadLyricsFor(t: Track) {
     : undefined;
 
   // Older Sonora builds discarded enhanced-LRC word timestamps. Upgrade both
-  // the IndexedDB cache and an already-restored in-memory lyrics snapshot from
-  // the original source file when that source contains real word-level timing.
+  // the IndexedDB cache and an already-restored in-memory snapshot when the
+  // retained original source contains real word-level timing.
   const richerSource = hasWordTiming(sidecarLyrics)
     ? sidecarLyrics
-    : hasWordTiming(embeddedLyrics)
-      ? embeddedLyrics
-      : undefined;
+    : hasWordTiming(savedSourceLyrics)
+      ? savedSourceLyrics
+      : hasWordTiming(embeddedLyrics)
+        ? embeddedLyrics
+        : undefined;
   const needsUpgrade = Boolean(
     richerSource && !hasWordTiming(inMemory) && !hasWordTiming(cached)
   );
