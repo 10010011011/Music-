@@ -3328,3 +3328,109 @@ input[type="range"].vslider::-webkit-slider-thumb {
     transform: scale(0.78);
   }
 }
+
+
+/* Synchronized lyrics: a centered, low-distraction reading surface. */
+.lyric-words {
+  white-space: pre-wrap;
+}
+
+.lyric-word {
+  transition: color 100ms linear, font-weight 100ms linear, text-shadow 100ms linear;
+}
+
+.lyric-word.is-spoken {
+  color: color-mix(in srgb, var(--accent) 74%, var(--text));
+}
+
+.lyric-word.is-current {
+  color: var(--accent);
+  font-weight: 900;
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.now-playing-switch {
+  width: fit-content;
+  margin: 6px auto 0;
+}
+
+.now-playing-body.lyrics-mode {
+  grid-template-columns: minmax(280px, 1.1fr) minmax(0, 1fr);
+}
+
+.now-lyrics-view {
+  height: clamp(320px, 48vh, 520px);
+  min-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 34px 20px 48px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  mask-image: linear-gradient(to bottom, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
+}
+
+.now-lyrics-view::-webkit-scrollbar {
+  display: none;
+}
+
+.now-lyrics-view .lyric-line {
+  gap: 0;
+  padding: 5px 2px;
+  color: var(--faint);
+  font-size: clamp(17px, 1.8vw, 22px);
+  line-height: 1.45;
+  letter-spacing: -0.45px;
+  transform: none;
+}
+
+.now-lyrics-view .lyric-line.past {
+  color: var(--faint);
+  opacity: 0.62;
+}
+
+.now-lyrics-view .lyric-line.active {
+  color: var(--text);
+  font-size: clamp(20px, 2.05vw, 26px);
+  font-weight: 800;
+}
+
+.now-lyrics-view .lyric-marker {
+  display: none;
+}
+
+.now-lyrics-view .no-lyrics {
+  margin: auto;
+  max-width: 270px;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .now-playing-switch {
+    margin: 2px auto 16px;
+  }
+
+  .now-playing-body.lyrics-mode {
+    gap: 18px;
+  }
+
+  .now-lyrics-view {
+    width: 100%;
+    height: min(41vh, 350px);
+    min-height: 210px;
+    padding: 24px 14px 38px;
+    border-radius: 14px;
+  }
+
+  .now-lyrics-view .lyric-line {
+    font-size: 18px;
+  }
+
+  .now-lyrics-view .lyric-line.active {
+    font-size: 21px;
+  }
+}
