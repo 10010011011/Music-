@@ -58,6 +58,21 @@ function hashId(value: string) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+function safeFileName(value: string, fallback: string) {
+  const cleaned = value
+    .replace(/[\\\\/:*?"<>|\\u0000-\\u001f]/g, "_")
+    .replace(/^\\.+/, "")
+    .trim()
+    .slice(0, 120);
+  return cleaned || fallback;
+}
+
+function coverExtension(type: string) {
+  const subtype = type.toLowerCase().split("/")[1]?.split("+")[0] || "jpeg";
+  if (subtype === "png" || subtype === "webp" || subtype === "gif" || subtype === "avif") return subtype;
+  return "jpg";
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -290,29 +305,38 @@ async function persistSafTracks(tracks: Track[], status: StorageStatus) {
 
   for (const track of tracks) {
     if (track.demo) continue;
-    const audioPath = "audio/" + hashId(track.id) + ".b64";
+    const audioPath = "audio/" + hashId(track.id) + "-" + safeFileName(track.file.name, "track.audio");
     const old = oldById.get(track.id);
     if (!old || old.size !== track.file.size || old.lastModified !== track.file.lastModified || old.audioPath !== audioPath) {
       await writeSafBlob(audioPath, track.file);
+      if (old?.audioPath && old.audioPath !== audioPath) {
+        await NativeStorage.deleteFile({ path: old.audioPath }).catch(() => {});
+      }
     }
 
     let sidecarPath: string | undefined;
     if (track.sidecar) {
-      sidecarPath = "lyrics/" + hashId(track.id) + ".b64";
+      sidecarPath = "lyrics/" + hashId(track.id) + "-" + safeFileName(track.sidecar.name, "lyrics.lrc");
       if (!old || old.sidecarPath !== sidecarPath ||
           old.sidecarSize !== track.sidecar.size ||
           old.sidecarLastModified !== track.sidecar.lastModified) {
         await writeSafBlob(sidecarPath, track.sidecar);
+        if (old?.sidecarPath && old.sidecarPath !== sidecarPath) {
+          await NativeStorage.deleteFile({ path: old.sidecarPath }).catch(() => {});
+        }
       }
     }
 
     let coverPath: string | undefined;
     const coverBlob = dataUrlToBlob(track.coverData || track.cover);
     if (coverBlob) {
-      coverPath = "covers/" + hashId(track.id) + ".b64";
+      coverPath = "covers/" + hashId(track.id) + "." + coverExtension(coverBlob.type);
       if (!old || old.coverPath !== coverPath || old.coverSize !== coverBlob.size ||
           old.coverLastModified !== track.file.lastModified) {
         await writeSafBlob(coverPath, coverBlob);
+        if (old?.coverPath && old.coverPath !== coverPath) {
+          await NativeStorage.deleteFile({ path: old.coverPath }).catch(() => {});
+        }
       }
     }
     next.push(savedTrack(track, { audioPath, sidecarPath, coverPath }));
