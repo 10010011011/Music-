@@ -60,14 +60,21 @@ export default function App() {
     let unsubscribeLyrics: (() => void) | undefined;
     let unsubscribeLibrary: (() => void) | undefined;
 
+    const persistStateNow = () => {
+      window.clearTimeout(saveTimer);
+      const state = library.get();
+      const queueIds = state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id));
+      const currentTrackId = state.tracks[state.queue[state.qpos]]?.id ?? null;
+      void persistNativeAppState(settings.get(), lyricsStore.get().map, { queueIds, currentTrackId });
+    };
+
     const schedulePersistentState = () => {
       window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => {
-        const state = library.get();
-        const queueIds = state.queue.map((index) => state.tracks[index]?.id).filter((id): id is string => Boolean(id));
-        const currentTrackId = state.tracks[state.queue[state.qpos]]?.id ?? null;
-        void persistNativeAppState(settings.get(), lyricsStore.get().map, { queueIds, currentTrackId });
-      }, 450);
+      saveTimer = window.setTimeout(persistStateNow, 450);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persistStateNow();
     };
 
     const restore = async () => {
@@ -117,9 +124,13 @@ export default function App() {
       else if (e.code === "ArrowLeft") engine.seek(engine.time - 5);
     };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("pagehide", persistStateNow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pagehide", persistStateNow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearTimeout(saveTimer);
       unsubscribeSettings?.();
       unsubscribeLyrics?.();
