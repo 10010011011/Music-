@@ -212,6 +212,8 @@ export function PlayerBar({
   const volPct = Math.round(volume * 100);
   const progressPct = duration ? Math.min(100, (position / duration) * 100) : 0;
 
+  if (!track) return null;
+
   return (
     <footer className="player-bar">
       <div className="player-song">
