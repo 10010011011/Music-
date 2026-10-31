@@ -3434,3 +3434,82 @@ input[type="range"].vslider::-webkit-slider-thumb {
     font-size: 21px;
   }
 }
+
+
+/* YouTube Music-inspired live lyric reading surface */
+.lyric-word.is-spoken {
+  color: color-mix(in srgb, var(--accent) 82%, var(--text));
+  font-weight: 760;
+}
+
+.lyric-word.is-current {
+  color: var(--accent);
+  font-weight: 950;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.now-lyrics-view {
+  scroll-padding-block: 42%;
+  overscroll-behavior: contain;
+}
+
+.now-lyrics-view .lyric-line {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.5;
+  padding: 8px 5px;
+  transition: color 180ms ease, opacity 180ms ease, transform 180ms ease, font-size 180ms ease;
+}
+
+.now-lyrics-view .lyric-line:not(.active):not(.past) {
+  opacity: 0.58;
+}
+
+.now-lyrics-view .lyric-line.past {
+  opacity: 0.32;
+}
+
+.now-lyrics-view .lyric-line.active {
+  opacity: 1;
+  transform: scale(1.015);
+  font-weight: 850;
+}
+
+.now-lyrics-view .lyric-line.active .lyric-word.is-spoken {
+  font-weight: 850;
+}
+
+.now-lyrics-view .lyric-line.active .lyric-word.is-current {
+  font-weight: 950;
+}
+
+@media (max-width: 700px) {
+  .now-playing-body.lyrics-mode {
+    gap: 14px;
+    margin-top: 0;
+  }
+
+  .now-lyrics-view {
+    height: min(54vh, 460px);
+    min-height: 250px;
+    padding: 28px 16px 44px;
+    border-radius: 16px;
+  }
+
+  .now-lyrics-view .lyric-line {
+    font-size: clamp(18px, 5vw, 22px);
+    line-height: 1.48;
+  }
+
+  .now-lyrics-view .lyric-line.active {
+    font-size: clamp(22px, 5.8vw, 27px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-lyrics-view .lyric-line,
+  .lyric-word {
+    transition: none !important;
+  }
+}
