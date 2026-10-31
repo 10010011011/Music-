@@ -1,0 +1,6 @@
+{
+  "name": "Sonora — Local Music Player, Lyrics Studio & DSP",
+  "description": "Merged local-first music player combining Sonora's editorial interface and Vocaloid themes (Miku, Teto, Neru) with MX Player's gapless Web Audio DSP engine, ReplayGain worker, and LRC studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
