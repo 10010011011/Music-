@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore, lyricsStore, clock, settings, player, toast, type Lyrics, type Track } from "../lib/store";
 import { loadLyricsFor } from "../lib/library";
 import { activeIndex } from "../lib/lyrics";
+import { LyricsScroller, LyricText } from "./LyricsScroller";
 import { engine, STARTER_BARS } from "../lib/engine";
 import { useCurrent } from "./Player";
 import { Icon, Btn, Cover } from "./ui";
@@ -298,34 +299,13 @@ export function useLyrics(t?: Track) {
 
 export function RightLyricsPanel({ onOpenStudio }: { onOpenStudio: () => void }) {
   const track = useCurrent();
-  const lyr = useLyrics(track);
-  const position = useStore(clock, (s) => s.t);
-  const activeIdx = activeIndex(lyr, position);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (activeIdx >= 0 && scrollRef.current) {
-      const el = scrollRef.current.querySelector<HTMLElement>(`[data-line="${activeIdx}"]`);
-      if (el) {
-        const container = scrollRef.current;
-        container.scrollTo({
-          top: el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2,
-          behavior: "smooth",
-        });
-      }
-    }
-  }, [activeIdx]);
-
-  const lines = lyr?.lines ?? [];
 
   return (
     <aside className="lyrics-panel">
       <div className="lyrics-top">
         <div>
           <span className="eyebrow">THE WORDS BEHIND THE MUSIC</span>
-          <h2>
-            Live lyrics<span>.</span>
-          </h2>
+          <h2>Live lyrics<span>.</span></h2>
         </div>
         <button type="button" title="Open lyrics studio" aria-label="Open lyrics studio" onClick={onOpenStudio}>
           <Icon n="more" s={21} />
@@ -341,43 +321,12 @@ export function RightLyricsPanel({ onOpenStudio }: { onOpenStudio: () => void })
         <Icon n="audio-lines" s={19} className="lyric-track-icon" />
       </div>
 
-      <div className="lyrics-body" ref={scrollRef}>
-        {lines.length ? (
-          lines.map((l, i) => (
-            <button
-              type="button"
-              key={i}
-              data-line={i}
-              className={`lyric-line ${activeIdx === i ? "active" : ""} ${i < activeIdx ? "past" : ""}`}
-              onClick={() => {
-                if (l.t !== null) engine.seek(l.t + (lyr?.offset ?? 0));
-              }}
-            >
-              <span className="lyric-marker" />
-              {l.text || "♪"}
-            </button>
-          ))
-        ) : (
-          <div className="no-lyrics">
-            <Icon n="mic" s={28} />
-            <b>No lyrics yet</b>
-            <p>Import an LRC file or paste your own words in Lyrics studio.</p>
-            <button type="button" onClick={onOpenStudio}>
-              Add lyrics <Icon n="right" s={15} />
-            </button>
-          </div>
-        )}
-      </div>
+      <LyricsScroller className="lyrics-body" onOpenStudio={onOpenStudio} />
 
       <div className="lyrics-bottom">
         <button type="button" onClick={onOpenStudio}>
-          <span className="lyrics-edit-icon">
-            <Icon n="mic" s={18} />
-          </span>
-          <span>
-            <b>Make the words yours</b>
-            <small>Import, edit &amp; sync lyrics</small>
-          </span>
+          <span className="lyrics-edit-icon"><Icon n="mic" s={18} /></span>
+          <span><b>Make the words yours</b><small>Import, edit &amp; sync lyrics</small></span>
           <Icon n="right" s={17} />
         </button>
       </div>
@@ -399,7 +348,7 @@ export function LyricsView({ lyr, lines: maxLines }: { lyr?: Lyrics; lines?: num
           key={s + k}
           className={`truncate transition-all ${s + k === idx ? "text-sm font-bold text-accent" : "text-xs text-muted"}`}
         >
-          {l.text || "♪"}
+          <LyricText line={l} time={time} offset={lyr?.offset ?? 0} active={s + k === idx} />
         </p>
       ))}
     </div>
