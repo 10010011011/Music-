@@ -221,3 +221,70 @@ export function activeWordIndex(line: LyricLine | undefined, time: number, offse
   }
   return index;
 }
+
+
+/**
+ * Standard LRC timestamps identify lines, not individual words. When enhanced
+ * word timestamps are absent, estimate a readable karaoke progression inside
+ * the line's time window. Enhanced LRC/WebVTT timings always take precedence.
+ * These are visual estimates, not claimed phoneme/word recognition timings.
+ */
+export function estimateWordTimings(
+  lyrics: Lyrics,
+  lineIndex: number,
+  trackDuration = 0
+): LyricWord[] | undefined {
+  const line = lyrics.lines[lineIndex];
+  if (!line || line.t == null || !line.text.trim()) return line?.words;
+  if (line.words?.length) return line.words;
+
+  const tokens = line.text.match(/\\S+\\s*/gu) ?? [];
+  if (!tokens.length) return undefined;
+
+  const start = line.t;
+  let nextStart: number | undefined;
+  for (let i = lineIndex + 1; i < lyrics.lines.length; i++) {
+    const candidate = lyrics.lines[i].t;
+    if (candidate != null && candidate > start + 0.03) {
+      nextStart = candidate;
+      break;
+    }
+  }
+
+  let available = nextStart != null
+    ? nextStart - start
+    : trackDuration > start
+      ? trackDuration - start
+      : 0;
+
+  if (available <= 0) {
+    const gaps: number[] = [];
+    let previous: number | undefined;
+    for (let i = 0; i < lineIndex; i++) {
+      const time = lyrics.lines[i].t;
+      if (time == null) continue;
+      if (previous != null && time > previous) gaps.push(time - previous);
+      previous = time;
+    }
+    const recent = gaps.slice(-5).sort((a, b) => a - b);
+    available = recent.length
+      ? recent[Math.floor(recent.length / 2)]
+      : Math.max(2.2, tokens.length * 0.42);
+  }
+
+  // Avoid stretching the last line across a long instrumental outro.
+  const speechWindow = Math.min(available, Math.max(2.2, tokens.length * 0.72));
+  const span = Math.max(0.12, speechWindow * 0.9);
+  const weights = tokens.map((token) => {
+    const count = Array.from(token.trim().replace(/[^\\p{L}\\p{N}]/gu, "")).length;
+    return Math.max(1, count);
+  });
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+
+  let elapsed = 0;
+  return tokens.map((text, index) => {
+    const word = { t: start + (elapsed / total) * span, text };
+    elapsed += weights[index];
+    return word;
+  });
+}
