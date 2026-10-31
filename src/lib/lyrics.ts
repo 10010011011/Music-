@@ -1,7 +1,7 @@
 import type { LyricLine, Lyrics, LyricWord } from "./store";
 
-const TAG = /\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?\\]/g;
-const INLINE_TIME = /<((?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)>/g;
+const TAG = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+const INLINE_TIME = /<((?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?)>/g;
 
 function toSec(m: string, s: string, f?: string) {
   const frac = f ? parseInt(f, 10) / Math.pow(10, f.length) : 0;
@@ -9,7 +9,7 @@ function toSec(m: string, s: string, f?: string) {
 }
 
 export function parseCueTime(value: string): number | null {
-  const match = value.trim().match(/^(?:(\\d+):)?(\\d{1,2}):(\\d{2})(?:[.,](\\d{1,3}))?$/);
+  const match = value.trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})(?:[.,](\d{1,3}))?$/);
   if (!match) return null;
   return (match[1] ? parseInt(match[1], 10) * 3600 : 0)
     + parseInt(match[2], 10) * 60
@@ -17,12 +17,12 @@ export function parseCueTime(value: string): number | null {
     + (match[4] ? parseInt(match[4], 10) / Math.pow(10, match[4].length) : 0);
 }
 
-function cleanCueMarkup(value: string) {
-  return value
-    .replace(/<\\/?(?:c|v|lang|b|i|u)(?:\\s+[^>]*)?>/gi, "")
+function cleanCueMarkup(value: string, trim = true) {
+  const cleaned = value
+    .replace(/<\/?(?:c|v|lang|b|i|u)(?:\s+[^>]*)?>/gi, "")
     .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .trim();
+    .replace(/&nbsp;/gi, " ");
+  return trim ? cleaned.trim() : cleaned;
 }
 
 /**
@@ -61,13 +61,13 @@ function parseInlineWords(value: string): LyricWord[] | undefined {
   words.push(current);
 
   const cleaned = words
-    .map(word => ({ ...word, text: cleanCueMarkup(word.text) }))
-    .filter(word => word.text.length > 0);
+    .map(word => ({ ...word, text: cleanCueMarkup(word.text, false) }))
+    .filter(word => word.text.trim().length > 0);
   if (!cleaned.length) return undefined;
 
-  // Preserve the spaces between words while avoiding accidental blank edges.
-  cleaned[0].text = cleaned[0].text.replace(/^\\s+/, "");
-  cleaned[cleaned.length - 1].text = cleaned[cleaned.length - 1].text.replace(/\\s+$/, "");
+  // Keep inter-word spaces (they are usually trailing text on the previous token).
+  cleaned[0].text = cleaned[0].text.replace(/^\s+/, "");
+  cleaned[cleaned.length - 1].text = cleaned[cleaned.length - 1].text.replace(/\s+$/, "");
   return cleaned;
 }
 
@@ -82,13 +82,13 @@ function shiftWords(words: LyricWord[] | undefined, delta: number) {
 }
 
 export function parseLyrics(input: string, source = "text"): Lyrics {
-  const text = input.replace(/\\r\\n?/g, "\\n").replace(/^\\uFEFF/, "");
+  const text = input.replace(/\r\n?/g, "\n").replace(/^\uFEFF/, "");
   const lines: LyricLine[] = [];
 
   // SRT / WebVTT. WebVTT's inline timestamp tags are retained as word timings.
   if (/-->/.test(text)) {
-    for (const block of text.split(/\\n\\s*\\n/)) {
-      const rows = block.split("\\n").filter(row => row.trim() && row.trim() !== "WEBVTT");
+    for (const block of text.split(/\n\s*\n/)) {
+      const rows = block.split("\n").filter(row => row.trim() && row.trim() !== "WEBVTT");
       const timeIndex = rows.findIndex(row => row.includes("-->"));
       if (timeIndex < 0) continue;
       const cueTime = parseCueTime(rows[timeIndex].split("-->")[0]);
@@ -103,13 +103,13 @@ export function parseLyrics(input: string, source = "text"): Lyrics {
   // LRC, including repeated line timestamps, [offset:], and enhanced word tags.
   let offset = 0;
   let timed = 0;
-  for (const raw of text.split("\\n")) {
-    const offsetTag = raw.match(/^\\s*\\[offset:\\s*([+-]?\\d+)\\s*\\]/i);
+  for (const raw of text.split("\n")) {
+    const offsetTag = raw.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/i);
     if (offsetTag) {
       offset = parseInt(offsetTag[1], 10) / 1000;
       continue;
     }
-    if (/^\\s*\\[[a-z]+:.*\\]\\s*$/i.test(raw)) continue;
+    if (/^\s*\[[a-z]+:.*\]\s*$/i.test(raw)) continue;
 
     const lineTimes: number[] = [];
     TAG.lastIndex = 0;
@@ -125,14 +125,15 @@ export function parseLyrics(input: string, source = "text"): Lyrics {
     const words = parseInlineWords(payload);
     const lineText = words
       ? words.map(word => word.text).join("").trim()
-      : cleanCueMarkup(payload.replace(/<\\d{1,3}:\\d{1,2}(?:[.:]\\d{1,3})?>/g, ""));
+      : cleanCueMarkup(payload.replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g, ""));
 
     if (!lineText) continue;
 
     if (lineTimes.length) {
       timed++;
       for (const time of lineTimes) {
-        const delta = words?.length ? time - words[0].t : 0;
+        // Repeated LRC line tags denote repeated performances of the same lyric.
+        const delta = words?.length && lineTimes.length > 1 ? time - lineTimes[0] : 0;
         lines.push({ t: time, text: lineText, ...(words ? { words: shiftWords(words, delta) } : {}) });
       }
     } else if (words?.length) {
@@ -170,7 +171,7 @@ export function toLRC(lyrics: Lyrics, meta?: { ti?: string; ar?: string }) {
       : line.text;
     output.push(line.t == null ? body : "[" + stamp(line.t + lyrics.offset) + "]" + body);
   }
-  return output.join("\\n");
+  return output.join("\n");
 }
 
 export function bakeOffset(lyrics: Lyrics): Lyrics {
