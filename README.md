@@ -15,9 +15,14 @@
 | **Lyrics Studio** | Sonora's 3-tab studio (`Text editor`, `Tap to sync`, `Preview`) wired to `lyrics.ts` and IndexedDB (`db.ts`), with per-line editable timestamps, live preview offset + `Bake`, timestamp shift (`±1.7 s` all lines or from current line), and 16-click audio **tap-latency calibration**. |
 | **Vocaloid Character Themes** | Alongside **Nocturne** (dark), **Daylight** (light), and **System**, includes three special character editions: **Miku (`CV01 // 39`)**, **Teto (`UTAU // 0401`)**, and **Neru (`DEN // 02`)** featuring custom coordinate-grid / diagonal-drill / dot-matrix surface patterns, serial badges, dual-tone harmonic sliders, and custom spectrogram colormaps. |
 
-## Building the Android APK on GitHub (Mobile Flat Zip Workflow)
+## Building the Android APK on GitHub
 
-1. Download **`sonora-github-flat.zip`** (available in the workspace root or via the **Flat GitHub zip** button inside the app's sidebar / Preferences modal).
-2. Extract `sonora-github-flat.zip` on your phone and upload all extracted files directly to the root of your GitHub repository. Because all imports inside `sonora-github-flat.zip` are pre-flattened to `./`, **no subfolders are required**.
-3. Create `.github/workflows/android.yml` in your repository using the contents of `android.yml` (also downloadable from Preferences).
-4. Run **Actions → Build Android APK** on GitHub and download the **`sonora-debug-apk`** artifact (`Sonora-main-debug.apk`).
+The repository includes its Android Actions workflow. Keep the folder structure intact when uploading the project to GitHub, then open **Actions → Build Android APK** and download the `sonora-debug-apk` artifact.
+
+### Mobile flat-zip transfer
+
+To create a single archive with flattened source files and the required Android scripts:
+
+1. From the project root, run `npm install` and `npm run build:flat-zip`.
+2. Extract `sonora-github-flat.zip` and upload its contents to the repository root. Keep the included `.github/workflows` and `scripts` folders.
+3. Run **Actions → Build Android APK**. The archive includes the current Capacitor 8 storage bridge, lyric reader, analysis worker, and regression tests.

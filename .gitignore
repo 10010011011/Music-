@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local AI Studio media cache and generated source archive
+.aistudio/
+sonora-github-flat.zip
+public/sonora-github-flat.zip

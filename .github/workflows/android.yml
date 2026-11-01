@@ -31,6 +31,12 @@ jobs:
         run: npm run lint
       - name: Lyrics parser regression tests
         run: npm run test:lyrics
+      - name: Core regression tests
+        run: npm run test:core
+      - name: Verify mobile flat-source archive
+        run: |
+          npm run build:flat-zip
+          unzip -t sonora-github-flat.zip
       - name: Create Android project (first run)
         run: |
           if [ ! -d android ]; then npx cap add android; fi
