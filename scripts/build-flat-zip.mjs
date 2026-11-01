@@ -86,10 +86,31 @@ async function buildFlatZip() {
     "sonora-github-flat.zip",
     ""
   ].join("\n"));
-  zip.file("README.md", readText("README.md"));
+  const fullWorkflow = readText(".github/workflows/android.yml");
+  const flatWorkflow = fullWorkflow.replace(
+    "      - name: Verify mobile flat-source archive\\n        run: |\\n          npm run build:flat-zip\\n          unzip -t sonora-github-flat.zip\\n",
+    ""
+  );
+  if (flatWorkflow === fullWorkflow) {
+    throw new Error("Could not remove the source-archive-only CI step from the flat workflow");
+  }
+
+  const flatReadme = [
+    "# Sonora — Flattened Source Bundle",
+    "",
+    "This archive is already prepared for a mobile GitHub upload. App modules are flattened to the archive root, while the Android workflow and required scripts remain in their original folders.",
+    "",
+    "1. Extract the archive and upload its contents to the repository root.",
+    "2. Keep the .github/workflows/android.yml and scripts/ folder.",
+    "3. Open GitHub Actions and run Build Android APK.",
+    "",
+    "To regenerate this archive, return to the original structured Sonora repository and run npm run build:flat-zip."
+  ].join("\\n");
+
+  zip.file("README.md", flatReadme);
   zip.file("metadata.json", readText("metadata.json"));
-  zip.file("android.yml", readText(".github/workflows/android.yml"));
-  zip.file(".github/workflows/android.yml", readText(".github/workflows/android.yml"));
+  zip.file("android.yml", flatWorkflow);
+  zip.file(".github/workflows/android.yml", flatWorkflow);
 
   const indexHtml = readText("index.html")
     .replace('src="/src/main.tsx"', 'src="./main.tsx"');
@@ -103,7 +124,6 @@ import { defineConfig } from "vite";
 
 const staticAssets = [
   "favicon.svg",
-  "afterglow-cover.webp",
   "dm-sans-latin.woff2",
   "manrope-latin.woff2"
 ];
@@ -197,7 +217,6 @@ export default defineConfig({
 
   for (const [source, archive] of [
     ["public/favicon.svg", "favicon.svg"],
-    ["public/afterglow-cover.webp", "afterglow-cover.webp"],
     ["public/fonts/dm-sans-latin.woff2", "dm-sans-latin.woff2"],
     ["public/fonts/manrope-latin.woff2", "manrope-latin.woff2"]
   ]) {
