@@ -88,7 +88,7 @@ async function buildFlatZip() {
   ].join("\n"));
   const fullWorkflow = readText(".github/workflows/android.yml");
   const flatWorkflow = fullWorkflow.replace(
-    "      - name: Verify mobile flat-source archive\\n        run: |\\n          npm run build:flat-zip\\n          unzip -t sonora-github-flat.zip\\n",
+    "      - name: Verify mobile flat-source archive\n        run: |\n          npm run build:flat-zip\n          unzip -t sonora-github-flat.zip\n",
     ""
   );
   if (flatWorkflow === fullWorkflow) {
@@ -105,7 +105,7 @@ async function buildFlatZip() {
     "3. Open GitHub Actions and run Build Android APK.",
     "",
     "To regenerate this archive, return to the original structured Sonora repository and run npm run build:flat-zip."
-  ].join("\\n");
+  ].join("\n");
 
   zip.file("README.md", flatReadme);
   zip.file("metadata.json", readText("metadata.json"));
